@@ -1,0 +1,21 @@
+weather = {
+    "ghi": olt_win["ghi.1"],
+    "dhi": olt_win["dhi.1"],
+    "dni": olt_win["dni.1"],
+    #"wind_speed": olt_win["wind_speed.1"],
+    "temp_air": olt_win["temp_air.1"],
+    "temp_dew": olt_win["temp_dew"],
+    "pressure": olt_win["pressure"],
+}
+______________
+house_1.add(
+    technologies.Photovoltaics(
+        "pv0",
+        (53.143890, 8.213889),
+        nominal_power=26.4,
+        weather=weather,
+        surface_azimuth=253,
+        surface_tilt=38,
+        fixed=True,
+    )
+)

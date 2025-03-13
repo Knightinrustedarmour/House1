@@ -1,0 +1,25 @@
+digraph "MTRESS model" {
+	subgraph "cluster_['Alhambra']" {
+		graph [label=Alhambra]
+		subgraph "cluster_['Alhambra', 'ElectricityCarrier']" {
+			graph [color=black label=ElectricityCarrier style=invis]
+			"['Alhambra', 'ElectricityCarrier']" [label=ElectricityCarrier]
+		}
+		subgraph "cluster_['Alhambra', 'ElectricityGridConnection']" {
+			graph [color=black label=ElectricityGridConnection style=invis]
+			"['Alhambra', 'ElectricityGridConnection']" [label=ElectricityGridConnection]
+		}
+		subgraph "cluster_['Alhambra', 'source2']" {
+			graph [color=black label=source2 style=invis]
+			"['Alhambra', 'source2']" [label=source2]
+		}
+		subgraph "cluster_['Alhambra', 'demand0']" {
+			graph [color=black label=demand0 style=invis]
+			"['Alhambra', 'demand0']" [label=demand0]
+		}
+	}
+	"['Alhambra', 'ElectricityCarrier']" -> "['Alhambra', 'demand0']" [label="" color=black]
+	"['Alhambra', 'ElectricityCarrier']" -> "['Alhambra', 'ElectricityGridConnection']" [label="" color=black]
+	"['Alhambra', 'ElectricityGridConnection']" -> "['Alhambra', 'ElectricityCarrier']" [label="" color=black]
+	"['Alhambra', 'source2']" -> "['Alhambra', 'ElectricityCarrier']" [label="" color=black]
+}

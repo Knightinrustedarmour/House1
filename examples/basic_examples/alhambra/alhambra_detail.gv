@@ -1,0 +1,40 @@
+digraph "MTRESS model" {
+	subgraph "cluster_['Alhambra']" {
+		graph [label=Alhambra]
+		subgraph "cluster_['Alhambra', 'ElectricityCarrier']" {
+			graph [color=black label=ElectricityCarrier style=dashed]
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" [label=distribution shape=ellipse]
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='feed_in')" [label=feed_in shape=ellipse]
+		}
+		subgraph "cluster_['Alhambra', 'ElectricityGridConnection']" {
+			graph [color=black label=ElectricityGridConnection style=dashed]
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='grid_import')" [label=grid_import shape=ellipse]
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='source_import')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='grid_import')"
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='grid_export')" [label=grid_export shape=ellipse]
+			"SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='source_import')" [label=source_import shape=trapezium]
+		}
+		subgraph "cluster_['Alhambra', 'demand0']" {
+			graph [color=black label=demand0 style=dashed]
+			"SolphLabel(location='Alhambra', mtress_component='demand0', solph_node='input')" [label=input shape=ellipse]
+			"SolphLabel(location='Alhambra', mtress_component='demand0', solph_node='sink')" [label=sink shape=invtrapezium]
+			"SolphLabel(location='Alhambra', mtress_component='demand0', solph_node='input')" -> "SolphLabel(location='Alhambra', mtress_component='demand0', solph_node='sink')"
+		}
+		subgraph "cluster_['Alhambra', 'storage1']" {
+			graph [color=black label=storage1 style=dashed]
+			"SolphLabel(location='Alhambra', mtress_component='storage1', solph_node='Battery_Storage')" [label=Battery_Storage shape=cylinder]
+		}
+		subgraph "cluster_['Alhambra', 'source2']" {
+			graph [color=black label=source2 style=dashed]
+			"SolphLabel(location='Alhambra', mtress_component='source2', solph_node='connection')" [label=connection shape=ellipse]
+			"SolphLabel(location='Alhambra', mtress_component='source2', solph_node='source')" -> "SolphLabel(location='Alhambra', mtress_component='source2', solph_node='connection')"
+			"SolphLabel(location='Alhambra', mtress_component='source2', solph_node='source')" [label=source shape=trapezium]
+		}
+	}
+	"SolphLabel(location='Alhambra', mtress_component='source2', solph_node='connection')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='storage1', solph_node='Battery_Storage')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" -> "SolphLabel(location='Alhambra', mtress_component='demand0', solph_node='input')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='feed_in')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='grid_export')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='source2', solph_node='connection')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='feed_in')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='ElectricityGridConnection', solph_node='grid_import')" -> "SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
+	"SolphLabel(location='Alhambra', mtress_component='ElectricityCarrier', solph_node='distribution')" -> "SolphLabel(location='Alhambra', mtress_component='storage1', solph_node='Battery_Storage')" [label="" color=black]
+}

@@ -88,3 +88,7 @@ render_series(plot_series, "electricity_pv_series", 1000)
 solved_model.write(
     "electricity_pv.lp", io_options={"symbolic_solver_labels": True}
 )
+pv_generation = flows[
+    ("house_1", "pv0", "source"), ("house_1", "pv0", "connection")
+]
+print(pv_generation).head(10)
