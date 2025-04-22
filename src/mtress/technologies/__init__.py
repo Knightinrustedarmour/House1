@@ -7,7 +7,7 @@ SPDX-FileCopyrightText: Patrik Schönfeldt
 SPDX-License-Identifier: MIT
 """
 
-from ._battery_storage import BatteryStorage
+from ._battery_storage import BatteryStorage, PowerWallGenI, PowerWallGenII
 from ._chp import (
     BIOGAS_CHP,
     BIOMETHANE_CHP,
@@ -32,6 +32,7 @@ from ._heater import GasBoiler, ResistiveHeater
 from ._photovoltaics import Photovoltaics
 from ._pressure_storage import H2Storage
 from ._renewable_electricity_source import RenewableElectricitySource
+from ._slack import SlackNode
 from .grid_connection import ElectricityGridConnection, GasGridConnection
 
 __all__ = [
@@ -52,6 +53,8 @@ __all__ = [
     "AEMFC",
     "AFC",
     "BatteryStorage",
+    "PowerWallGenI",
+    "PowerWallGenII",
     "HeatPump",
     "COPReference",
     "CHP",
@@ -69,4 +72,5 @@ __all__ = [
     "Photovoltaics",
     "RenewableElectricitySource",
     "GasBoiler",
+    "SlackNode",
 ]
