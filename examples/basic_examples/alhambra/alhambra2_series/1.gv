@@ -1,0 +1,37 @@
+digraph "MTRESS model" {
+	subgraph "cluster_['house_1']" {
+		graph [label=house_1]
+		subgraph "cluster_['house_1', 'ElectricityCarrier']" {
+			graph [color=black label=ElectricityCarrier style=dashed]
+			"SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label=distribution shape=ellipse]
+			"SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='feed_in')" [label=feed_in shape=ellipse]
+		}
+		subgraph "cluster_['house_1', 'ElectricityGridConnection']" {
+			graph [color=black label=ElectricityGridConnection style=dashed]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_import')" [label=grid_import shape=ellipse]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='source_import')" -> "SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_import')" [label=14780.0 color=orange]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_export')" [label=grid_export shape=ellipse]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='sink_export')" [label=sink_export shape=invtrapezium]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_export')" -> "SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='sink_export')" [label=12289764026000.0 color=orange]
+			"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='source_import')" [label=source_import shape=trapezium]
+		}
+		subgraph "cluster_['house_1', 'demand0']" {
+			graph [color=black label=demand0 style=dashed]
+			"SolphLabel(location='house_1', mtress_component='demand0', solph_node='input')" [label=input shape=ellipse]
+			"SolphLabel(location='house_1', mtress_component='demand0', solph_node='sink')" [label=sink shape=invtrapezium]
+			"SolphLabel(location='house_1', mtress_component='demand0', solph_node='input')" -> "SolphLabel(location='house_1', mtress_component='demand0', solph_node='sink')" [label=14780.0 color=orange]
+		}
+		subgraph "cluster_['house_1', 'source2']" {
+			graph [color=black label=source2 style=dashed]
+			"SolphLabel(location='house_1', mtress_component='source2', solph_node='connection')" [label=connection shape=ellipse]
+			"SolphLabel(location='house_1', mtress_component='source2', solph_node='source')" -> "SolphLabel(location='house_1', mtress_component='source2', solph_node='connection')" [label=12289764020312.05 color=orange]
+			"SolphLabel(location='house_1', mtress_component='source2', solph_node='source')" [label=source shape=trapezium]
+		}
+	}
+	"SolphLabel(location='house_1', mtress_component='source2', solph_node='connection')" -> "SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=grey]
+	"SolphLabel(location='house_1', mtress_component='source2', solph_node='connection')" -> "SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='feed_in')" [label=12289764026000.0 color=orange]
+	"SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_import')" -> "SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label=14780.0 color=orange]
+	"SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='feed_in')" -> "SolphLabel(location='house_1', mtress_component='ElectricityGridConnection', solph_node='grid_export')" [label=12289764026000.0 color=orange]
+	"SolphLabel(location='house_1', mtress_component='ElectricityCarrier', solph_node='distribution')" -> "SolphLabel(location='house_1', mtress_component='demand0', solph_node='input')" [label=14780.0 color=orange]
+	label="2022-08-08 04:00:00 - 2022-08-08 08:00:00"
+}

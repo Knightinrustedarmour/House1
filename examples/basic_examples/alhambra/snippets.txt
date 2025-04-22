@@ -19,3 +19,170 @@ house_1.add(
         fixed=True,
     )
 )
+________________________________________________
+
+
+
+print("Grid import series:", grid_import)
+print("Total Grid Import in Kw:", total_grid_import)
+print("Demand Min:", op_data["Load_Watts"].min())
+print("Demand Max:", op_data["Load_Watts"].max())
+print("Demand Data Type:", op_data["Load_Watts"].dtype)
+print("PV Generation Min:", op_data["Modelled_Energy"].min())
+print("PV Generation Max:", op_data["Modelled_Energy"].max())
+print("PV Generation Average:", op_data["Modelled_Energy"].mean())
+print(op_data[["Modelled_Energy", "Load_Watts"]].dtypes)
+print(op_data[["Modelled_Energy", "Load_Watts"]].isna().sum())
+plt.figure(figsize=(12, 6))
+plt.plot(op_data["Load_Watts"], label="Demand (Watts)")
+plt.plot(op_data["Modelled_Energy"], label="PV Generation (Watts)")
+plt.xlabel("Time")
+plt.ylabel("Power (Watts)")
+plt.title("Demand vs. PV Generation")
+plt.legend()
+plt.grid(True)
+plt.show()
+________________________________________________
+# weather = {
+#     "ghi": "FILE:../../OLT_WIN.:ghi.1",
+#     "dhi": "FILE:../../OLT_WIN.:dhi.1",
+#    # "wind_speed": "FILE:../OLT_WIN.:wind_speed",
+#     "temp_air": "FILE:../../OLT_WIN.:temp_air.1",
+#     "temp_dew": "FILE:../../OLT_WIN.:temp_dew",
+#     "pressure": "FILE:../../OLT_WIN.:pressure",
+# }
+
+
+________________________________________________
+
+
+plt.figure(figsize=(7, 4))
+# #plt.plot(air_temp_ahe.index, air_temp_ahe, label="T_ambient")
+# plt.plot(Carr_demand.index, Carr_demand, label="Carr_demand", color="purple")
+
+
+# plt.legend()
+# plt.title("Hot Storage supplying temperature Base case")
+# plt.xlabel("Time (HH:MM)")
+# plt.ylabel("Watts")
+# plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
+# #plt.savefig("HP_performance.png")
+# plt.show()
+
+
+# data = [Time,Carr_demand]
+# headers= ["Time","Carr_demand"]
+# with open("Scenario_1.", "w", newline="") as f:
+#      writer = .writer(f)
+#      writer.writerow(headers)  # Write headers
+#      for row in zip(*data):  # Combine rows from different data sources
+#          writer.writerow(row)
+
+
+
+
+
+
+
+def extract_flow_results(results):
+    flow_data = []
+    for (origin_tuple, target_tuple), data in results.items():
+        origin = origin_tuple.label if hasattr(origin_tuple, 'label') else origin_tuple
+        target = target_tuple.label if hasattr(target_tuple, 'label') else target_tuple
+
+        if target is not None and 'sequences' in data:
+            df = data['sequences']
+            for col in df.columns:
+                if col.startswith('flow'):
+                    for timestamp, value in df[col].items():
+                        flow_data.append({
+                            'timestamp': timestamp,
+                            'origin': origin,
+                            'target': target,
+                            'flow': col,
+                            'value': value
+                        })
+    return pd.DataFrame(flow_data)
+
+# Extract flow results into a Pandas DataFrame
+flows_df = extract_flow_results(myresults)
+
+# Save the DataFrame to a CSV file
+flows_df.to_csv("flow_results.csv", index=False)
+
+print("Flow results saved to flow_results.csv")
+
+# You can do the same for scalar results if needed
+def extract_scalar_results(results):
+    scalar_data = []
+    for key, data in results.items():
+        if 'scalars' in data:
+            for scalar_name, value in data['scalars'].items():
+                scalar_data.append({
+                    'node': key,
+                    'scalar': scalar_name,
+                    'value': value
+                })
+    return pd.DataFrame(scalar_data)
+
+scalars_df = extract_scalar_results(myresults)
+if not scalars_df.empty:
+    scalars_df.to_csv("scalar_results.csv", index=False)
+    print("Scalar results saved to scalar_results.csv")
+else:
+    print("No scalar results found.")
+
+
+
+___________________________________________________________________
+
+# total_battery = sum(pv_input - battery_in) / 1000
+# print("Battery storage:",total_battery)
+# # print("Total Import from grid in Kw:",total_grid_import)
+# # print("Import from CSV",op_data["Load_Watts"].sum() /1000)
+# # print("PV from CSV",op_data["Modelled_Energy"].sum()/1000)
+ 
+# #plt.plot(self_use.index,self_use, label="PV Self Consumption", color="green")
+# plt.plot(grid_import.index, grid_import, label="Grid Import",color="blue")
+# #plt.plot(battery_in.index, battery_in, label="Battery Charge",color="red")
+# plt.plot(battery_out.index, battery_out, label="Battery Discharge",color="purple")
+# #plt.plot(grid_export.index,grid_export,label = "Grid Export",color = "pink")
+# plt.legend()
+# plt.xlabel("Time") 
+# plt.ylabel("Energy (W)")
+# plt.show()
+_________________________________________________________________________________________________________
+
+pv_generation = flows[
+    ("Alhambra", "PV", "source"), ("Alhambra", "PV", "connection")
+].fillna(0)
+total_pv_generation = sum(pv_generation) / 1000  # Convert to kW
+pv_input = flows[("Alhambra", "PV", "connection"),("Alhambra","ElectricityCarrier","distribution")].fillna(0)
+demand2 = flows[("Alhambra", "demand", "input"), ("Alhambra", "demand", "sink")].fillna(0)
+distrubution = flows[("Alhambra","ElectricityCarrier","distribution"),("Alhambra", "demand", "input")].fillna(0)
+grid_import = flows[
+    ("Alhambra", "ElectricityGridConnection", "grid_import"), ("Alhambra","ElectricityCarrier","distribution")
+].fillna(0)
+grid_export = flows[("Alhambra","ElectricityCarrier","feed_in"),("Alhambra", "ElectricityGridConnection", "grid_export")].fillna(0)
+self_use = pv_input - grid_export
+battery_out =flows[("Alhambra","storage1","Battery_Storage"),("Alhambra","ElectricityCarrier","distribution")].fillna(0)
+
+battery_in = flows[("Alhambra","ElectricityCarrier","distribution"),("Alhambra","storage1","Battery_Storage")].fillna(0)
+
+output_df = pd.DataFrame({
+    'PV_Input_Watts': pv_input,
+    'Battery_In_Watts': battery_in,
+    'Battery_Out_Watts': battery_out,
+    'Grid_Import_Watts': grid_import,
+    'Grid_export_watts': grid_export,
+    'Self_consumption' : self_use,
+    'Demand' : op_data["Load_Wh"],
+    'Demand2' : demand2 ,
+    'Distrubution' : distrubution,
+    
+})
+
+# Save the DataFrame to a CSV file
+output_df.to_csv("energy_flows.csv")
+_________________________________________________________________________________________________________
+"SolphLabel(location='Alhambra', mtress_component='', solph_node='')"
