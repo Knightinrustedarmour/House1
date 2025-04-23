@@ -71,9 +71,9 @@ flows = get_flows(myresults)
 
 output = pd.DataFrame(flows)
 #saving flows in csv file
-output.to_csv("C:/Users/eshwa/mt/mtress/examples/basic_examples/House1/test_results.csv", index=True)
+output.to_csv("test_results.csv", index=True)
 
-results = pd.read_csv("C:/Users/eshwa/mt/mtress/examples/basic_examples/House1/test_results.csv", header=[0, 1], index_col=0)
+results = pd.read_csv("test_results.csv", header=[0, 1], index_col=0)
 
 df = pd.DataFrame()
 
