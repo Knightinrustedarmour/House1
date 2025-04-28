@@ -24,7 +24,7 @@ meta_model.add_location(House1)
 House1.add(carriers.ElectricityCarrier())
 
 House1.add(technologies.ElectricityGridConnection(working_rate=35e-6, revenue=8e-6))
-op_data = pd.read_csv("C:/Users/eshwa/mt/mtress/examples/op_data3.csv")
+op_data = pd.read_csv(os.path.join("..","..", "op_data_power.csv"))
 time_index = {
     "start": "2023-12-01 00:00:00",
     "end": "2023-12-10 23:59:00",
@@ -54,7 +54,7 @@ date_range = pd.date_range(start=full_date_range[start_row], end=full_date_range
 
 op_data.index = date_range
 
-House1.add(demands.Electricity(name="demand", time_series=op_data["Load_Wh"]))
+House1.add(demands.Electricity(name="demand", time_series=op_data["Load_W"]))
 
 
 House1.add(technologies.RenewableElectricitySource
@@ -102,4 +102,4 @@ solph_representation.build_solph_model()
 
 output = pd.DataFrame(flows)
 #saving flows in csv file
-output.to_csv("C:/Users/eshwa/mt/mtress/examples/basic_examples/alhambra/flows/flow_dec1023.csv", index=True)
+output.to_csv(os.path.join("flows", "flow_W_dec23.csv"), index=True)
