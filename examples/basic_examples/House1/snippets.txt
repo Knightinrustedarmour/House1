@@ -1,13 +1,4 @@
-weather = {
-    "ghi": olt_win["ghi.1"],
-    "dhi": olt_win["dhi.1"],
-    "dni": olt_win["dni.1"],
-    #"wind_speed": olt_win["wind_speed.1"],
-    "temp_air": olt_win["temp_air.1"],
-    "temp_dew": olt_win["temp_dew"],
-    "pressure": olt_win["pressure"],
-}
-______________
+PV ADD TECH
 house_1.add(
     technologies.Photovoltaics(
         "pv0",
@@ -19,30 +10,10 @@ house_1.add(
         fixed=True,
     )
 )
-________________________________________________
 
 
 
-print("Grid import series:", grid_import)
-print("Total Grid Import in Kw:", total_grid_import)
-print("Demand Min:", op_data["Load_Watts"].min())
-print("Demand Max:", op_data["Load_Watts"].max())
-print("Demand Data Type:", op_data["Load_Watts"].dtype)
-print("PV Generation Min:", op_data["Modelled_Energy"].min())
-print("PV Generation Max:", op_data["Modelled_Energy"].max())
-print("PV Generation Average:", op_data["Modelled_Energy"].mean())
-print(op_data[["Modelled_Energy", "Load_Watts"]].dtypes)
-print(op_data[["Modelled_Energy", "Load_Watts"]].isna().sum())
-plt.figure(figsize=(12, 6))
-plt.plot(op_data["Load_Watts"], label="Demand (Watts)")
-plt.plot(op_data["Modelled_Energy"], label="PV Generation (Watts)")
-plt.xlabel("Time")
-plt.ylabel("Power (Watts)")
-plt.title("Demand vs. PV Generation")
-plt.legend()
-plt.grid(True)
-plt.show()
-________________________________________________
+PV PARAMETERS____
 # weather = {
 #     "ghi": "FILE:../../OLT_WIN.:ghi.1",
 #     "dhi": "FILE:../../OLT_WIN.:dhi.1",
@@ -52,136 +23,7 @@ ________________________________________________
 #     "pressure": "FILE:../../OLT_WIN.:pressure",
 # }
 
-
-________________________________________________
-
-
-plt.figure(figsize=(7, 4))
-# #plt.plot(air_temp_ahe.index, air_temp_ahe, label="T_ambient")
-# plt.plot(Carr_demand.index, Carr_demand, label="Carr_demand", color="purple")
-
-
-# plt.legend()
-# plt.title("Hot Storage supplying temperature Base case")
-# plt.xlabel("Time (HH:MM)")
-# plt.ylabel("Watts")
-# plt.gca().xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%H:%M"))
-# #plt.savefig("HP_performance.png")
-# plt.show()
-
-
-# data = [Time,Carr_demand]
-# headers= ["Time","Carr_demand"]
-# with open("Scenario_1.", "w", newline="") as f:
-#      writer = .writer(f)
-#      writer.writerow(headers)  # Write headers
-#      for row in zip(*data):  # Combine rows from different data sources
-#          writer.writerow(row)
-
-
-
-
-
-
-
-def extract_flow_results(results):
-    flow_data = []
-    for (origin_tuple, target_tuple), data in results.items():
-        origin = origin_tuple.label if hasattr(origin_tuple, 'label') else origin_tuple
-        target = target_tuple.label if hasattr(target_tuple, 'label') else target_tuple
-
-        if target is not None and 'sequences' in data:
-            df = data['sequences']
-            for col in df.columns:
-                if col.startswith('flow'):
-                    for timestamp, value in df[col].items():
-                        flow_data.append({
-                            'timestamp': timestamp,
-                            'origin': origin,
-                            'target': target,
-                            'flow': col,
-                            'value': value
-                        })
-    return pd.DataFrame(flow_data)
-
-# Extract flow results into a Pandas DataFrame
-flows_df = extract_flow_results(myresults)
-
-# Save the DataFrame to a CSV file
-flows_df.to_csv("flow_results.csv", index=False)
-
-print("Flow results saved to flow_results.csv")
-
-# You can do the same for scalar results if needed
-def extract_scalar_results(results):
-    scalar_data = []
-    for key, data in results.items():
-        if 'scalars' in data:
-            for scalar_name, value in data['scalars'].items():
-                scalar_data.append({
-                    'node': key,
-                    'scalar': scalar_name,
-                    'value': value
-                })
-    return pd.DataFrame(scalar_data)
-
-scalars_df = extract_scalar_results(myresults)
-if not scalars_df.empty:
-    scalars_df.to_csv("scalar_results.csv", index=False)
-    print("Scalar results saved to scalar_results.csv")
-else:
-    print("No scalar results found.")
-
-
-
-___________________________________________________________________
-
-# total_battery = sum(pv_input - battery_in) / 1000
-# print("Battery storage:",total_battery)
-# # print("Total Import from grid in Kw:",total_grid_import)
-# # print("Import from CSV",op_data["Load_Watts"].sum() /1000)
-# # print("PV from CSV",op_data["Modelled_Energy"].sum()/1000)
- 
-# #plt.plot(self_use.index,self_use, label="PV Self Consumption", color="green")
-# plt.plot(grid_import.index, grid_import, label="Grid Import",color="blue")
-# #plt.plot(battery_in.index, battery_in, label="Battery Charge",color="red")
-# plt.plot(battery_out.index, battery_out, label="Battery Discharge",color="purple")
-# #plt.plot(grid_export.index,grid_export,label = "Grid Export",color = "pink")
-# plt.legend()
-# plt.xlabel("Time") 
-# plt.ylabel("Energy (W)")
-# plt.show()
-_________________________________________________________________________________________________________
-
-pv_generation = flows[
-    ("Alhambra", "PV", "source"), ("Alhambra", "PV", "connection")
-].fillna(0)
-total_pv_generation = sum(pv_generation) / 1000  # Convert to kW
-pv_input = flows[("Alhambra", "PV", "connection"),("Alhambra","ElectricityCarrier","distribution")].fillna(0)
-demand2 = flows[("Alhambra", "demand", "input"), ("Alhambra", "demand", "sink")].fillna(0)
-distrubution = flows[("Alhambra","ElectricityCarrier","distribution"),("Alhambra", "demand", "input")].fillna(0)
-grid_import = flows[
-    ("Alhambra", "ElectricityGridConnection", "grid_import"), ("Alhambra","ElectricityCarrier","distribution")
-].fillna(0)
-grid_export = flows[("Alhambra","ElectricityCarrier","feed_in"),("Alhambra", "ElectricityGridConnection", "grid_export")].fillna(0)
-self_use = pv_input - grid_export
-battery_out =flows[("Alhambra","storage1","Battery_Storage"),("Alhambra","ElectricityCarrier","distribution")].fillna(0)
-
-battery_in = flows[("Alhambra","ElectricityCarrier","distribution"),("Alhambra","storage1","Battery_Storage")].fillna(0)
-
-output_df = pd.DataFrame({
-    'PV_Input_Watts': pv_input,
-    'Battery_In_Watts': battery_in,
-    'Battery_Out_Watts': battery_out,
-    'Grid_Import_Watts': grid_import,
-    'Grid_export_watts': grid_export,
-    'Self_consumption' : self_use,
-    'Demand' : op_data["Load_Wh"],
-    'Demand2' : demand2 ,
-    'Distrubution' : distrubution,
-    
-})
-
+SAVE FLOW
 # Save the DataFrame to a CSV file
 output_df.to_csv("energy_flows.csv")
 _________________________________________________________________________________________________________
@@ -189,7 +31,7 @@ ________________________________________________________________________________
 ___________________________________________________________________ 
 
 
-
+SUBPLOTS 1
 
 fig, axes = plt.subplots(nrows=7, ncols=1, figsize=(12, 18), sharex=True)
 plt.subplots_adjust(hspace=0.5) # Adjust vertical spacing between subplots
@@ -233,3 +75,134 @@ axes[6].grid(True)
 fig.suptitle(f"Energy Flows ({start_time} to {end_time})", fontsize=16)
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 plt.show()
+
+
+
+
+
+
+SUBPLOTS 2
+
+# fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(12, 18), sharex=True)
+# plt.subplots_adjust(hspace=0.5) # Adjust vertical spacing between subplots
+# # Plot each energy flow in a separate subplot
+# df["PV_production"].plot(ax=axes[0], label="PV Production (W)", color="green")
+# df["PV_distribution"].plot(ax=axes[0], label="PV Distribution (Wh)", color="lightgreen")
+# axes[0].set_ylabel("Power (W)")
+# axes[0].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[0].grid(True)
+
+
+# df["Demand2"].plot(ax=axes[1], label="Demand (Wh)", color="red")
+# df["Grid_import"].plot(ax=axes[1], label="Grid Import (Wh)", color="blue")
+# axes[1].set_ylabel("Energy (Wh)")
+# axes[1].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[1].grid(True)
+
+# df["Grid_export"].plot(ax=axes[2], label="Grid Export (Wh)", color="yellow")
+# (-df["Grid_import"]).plot(ax=axes[2], label="Grid Import (W)", color="blue")
+# axes[2].set_ylabel("Energy (Wh)")
+# axes[2].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[2].grid(True)
+
+# df["Battery_charge"].plot(ax=axes[3], label="Battery Charge (Wh)", color="orange")
+# (-df["Battery_discharge"]).plot(ax=axes[3], label="Battery Discharge (Wh)", color="purple")
+# axes[3].set_ylabel("Energy (Wh)")
+# axes[3].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[3].grid(True)
+
+# fig.suptitle(f"Energy Flows ({start_time} to {end_time})", fontsize=16)
+# plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+# plt.show()
+
+
+
+
+
+PRINT SUM VALUES
+
+
+# total_pv_production = df["PV_production"].sum() / 1000
+# # total_pv_use = df["PV_distribution"].sum() / 1000
+# total_demand2 = df["Demand2"].sum()/ 1000
+# # total_gridimport = df["Grid_import"].sum()/ 1000
+# # total_gridexport = df["Grid_export"].sum()/ 1000
+# # total_battery_discharge = df["Battery_discharge"].sum()/ 1000
+# # total_battery_charge = df["Battery_charge"].sum()/ 1000
+
+# actual_demand = op_data["Load_W"].sum() / 1000
+# actual_pv_production = op_data["Modelled_Energy"].sum() / 1000
+
+# print("Total PV Production (Actual): {:.2f} kW".format(actual_pv_production))
+# print("Total Demand (Actual): {:.2f} kW".format(actual_demand))
+# print("Total PV Production (Sum of 'PV_production' column): {:.2f} kW".format(total_pv_production))
+# # print("Total PV Used (Sum of 'PV_distribution' column): {:.2f} kW".format(total_pv_use))
+# print("Total Demand (Sum of 'Demand2' column): {:.2f} kW".format(total_demand2))
+# # print("Total Grid Import (Sum of 'Grid_import' column): {:.2f} kW".format(total_gridimport))
+# # print("Total Grid Export (Sum of 'Grid_export' column): {:.2f} kW".format(total_gridexport))
+# # print("Total Battery Discharge (Sum of 'Battery_discharge' column): {:.2f} kW".format(total_battery_discharge))
+# # print("Total Battery Charge (Sum of 'Battery_charge' column): {:.2f} kW".format(total_battery_charge))
+
+
+
+
+
+Battery SOC
+
+# nominal_capacity = 5000  # in Wh
+# charge_eff = 0.77
+# discharge_eff = 0.77
+# soc = [0.5 * nominal_capacity]  # initial SOC in Wh
+
+# for ch, dis in zip(df["Battery_charge"].fillna(0), df["Battery_discharge"].fillna(0)):
+#     prev = soc[-1]
+#     new = prev + ch * charge_eff - dis / discharge_eff
+#     new = max(0, min(nominal_capacity, new))
+#     soc.append(new)
+
+# df["SOC (%)"] = [s / nominal_capacity * 100 for s in soc[1:]]
+
+# # Plot
+# fig_soc, ax_soc = plt.subplots(figsize=(12, 3))
+# df["SOC (%)"].plot(ax=ax_soc, color="black", label="State of Charge (%)")
+# ax_soc.set_ylabel("SOC (%)")
+# ax_soc.set_xlabel("Time")
+# ax_soc.set_title("Battery State of Charge")
+# ax_soc.grid(True)
+# ax_soc.legend(loc="upper right")
+# plt.tight_layout()
+# plt.show()
+
+
+
+SPLICE OP Data
+
+# op_data = pd.read_csv(os.path.join("..","..", "op_data_power.csv"))
+# time_index = {
+#     "start": "2023-12-01 00:00:00",
+#     "end": "2023-12-05 23:59:00",
+#     "freq": "min",
+#     "tz": "Europe/Berlin",
+# }
+
+# start_date_str = time_index["start"][:10]  # Extract date from timestamp
+# end_date_str = time_index["end"][:10]
+
+
+# full_date_range = pd.date_range(start="2022-08-08 00:00:00", periods=len(op_data), freq="min", tz=time_index["tz"])
+
+# # Find matching rows
+# start_row = None
+# end_row = None
+
+# for i, ts in enumerate(full_date_range):
+#     if ts.strftime("%Y-%m-%d") == start_date_str and start_row is None:
+#         start_row = i
+#     if ts.strftime("%Y-%m-%d") == end_date_str:
+#         end_row = i + 1  
+
+# op_data = op_data.iloc[start_row:end_row]
+
+# date_range = pd.date_range(start=full_date_range[start_row], end=full_date_range[end_row-1], freq=time_index["freq"], tz=time_index["tz"])
+
+# op_data.index = date_range

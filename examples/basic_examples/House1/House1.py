@@ -26,8 +26,8 @@ House1.add(carriers.ElectricityCarrier())
 House1.add(technologies.ElectricityGridConnection(working_rate=35e-6, revenue=8e-6))
 op_data = pd.read_csv(os.path.join("..","..", "op_data_power.csv"))
 time_index = {
-    "start": "2023-12-01 00:00:00",
-    "end": "2023-12-10 23:59:00",
+    "start": "2023-10-01 00:00:00",
+    "end": "2023-10-31 23:59:00",
     "freq": "min",
     "tz": "Europe/Berlin",
 }
@@ -87,9 +87,6 @@ plot.render(outfile="house_detail.png")
 
 solved_model = solph_representation.solve(solve_kwargs={"tee": True})
 
-solved_model.write(
-    "house_only.lp", io_options={"symbolic_solver_labels": True}
-)
 
 myresults = solph.processing.results(solved_model)
 flows = get_flows(myresults)
@@ -102,4 +99,4 @@ solph_representation.build_solph_model()
 
 output = pd.DataFrame(flows)
 #saving flows in csv file
-output.to_csv(os.path.join("flows", "flow_W_dec23.csv"), index=True)
+output.to_csv(os.path.join("flows", "flow_W_oct23.csv"), index=True)
