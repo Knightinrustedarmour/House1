@@ -3,30 +3,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
-# def soc(charge_series, discharge_series, index, 
-#         nominal_capacity_wh=5000, charge_eff=0.96, discharge_eff=0.96, 
-#         loss_rate=0.0012, initial_soc_wh=None):
-    
-#     if initial_soc_wh is None:
-#         initial_soc_wh = 0.5 * nominal_capacity_wh
-
-#     soc_values = [initial_soc_wh]
-
-#     for i in range(1, len(index)):
-#         dt_hours = (index[i] - index[i - 1]).total_seconds() / 3600
-#         last_soc = soc_values[-1]
-
-#         charge_energy = charge_series.iloc[i] * charge_eff * dt_hours
-#         discharge_energy = discharge_series.iloc[i] / discharge_eff * dt_hours
-#         loss = loss_rate * nominal_capacity_wh * dt_hours
-
-#         new_soc = last_soc + charge_energy - discharge_energy - loss
-#       #  new_soc = max(0, min(nominal_capacity_wh, new_soc))
-#         soc_values.append(new_soc)
-
-#     return [val / nominal_capacity_wh * 100 for val in soc_values]
-
-
 def soc(charge_series, discharge_series, index, 
         nominal_capacity_wh=5000, charge_eff=0.96, discharge_eff=0.96, 
         loss_rate=0.0005, initial_soc_wh=None, soc_min_frac=0.1):
@@ -54,10 +30,9 @@ def soc(charge_series, discharge_series, index,
 
     return [val / nominal_capacity_wh * 100 for val in soc_values]
 
-
 os.chdir(os.path.dirname(__file__))
 
-results = pd.read_csv(os.path.join("flows", "flow_W_jun23.csv"), header=[0, 1], index_col=0)
+results = pd.read_csv(os.path.join("flows", "flow_W_dec23.csv"), header=[0, 1], index_col=0)
 
 df = pd.DataFrame()
 df["Battery_charge"] = results[[

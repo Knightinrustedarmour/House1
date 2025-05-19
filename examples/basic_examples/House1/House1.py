@@ -26,8 +26,8 @@ House1.add(carriers.ElectricityCarrier())
 House1.add(technologies.ElectricityGridConnection(working_rate=35e-6, revenue=8e-6))
 op_data = pd.read_csv(os.path.join("..","..", "op_data_power.csv"))
 time_index = {
-    "start": "2023-04-01 00:00:00",
-    "end": "2023-04-30 23:59:00",
+    "start": "2023-03-01 00:00:00",
+    "end": "2023-03-31 23:59:00",
     "freq": "min",
     "tz": "Europe/Berlin",
 }
@@ -99,4 +99,4 @@ solph_representation.build_solph_model()
 
 output = pd.DataFrame(flows)
 #saving flows in csv file
-output.to_csv(os.path.join("flows_nobattery", "flow_NB_apr23.csv"), index=True)
+output.to_csv(os.path.join("flows", "flow_W_mar23.csv"), index=True)

@@ -28,9 +28,9 @@ digraph "MTRESS model" {
 			"SolphLabel(location='House1', mtress_component='PV', solph_node='source')" [label=source shape=trapezium]
 		}
 	}
-	"SolphLabel(location='House1', mtress_component='ElectricityGridConnection', solph_node='grid_import')" -> "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
 	"SolphLabel(location='House1', mtress_component='PV', solph_node='connection')" -> "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
 	"SolphLabel(location='House1', mtress_component='PV', solph_node='connection')" -> "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='feed_in')" [label="" color=black]
 	"SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')" -> "SolphLabel(location='House1', mtress_component='demand', solph_node='input')" [label="" color=black]
+	"SolphLabel(location='House1', mtress_component='ElectricityGridConnection', solph_node='grid_import')" -> "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')" [label="" color=black]
 	"SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='feed_in')" -> "SolphLabel(location='House1', mtress_component='ElectricityGridConnection', solph_node='grid_export')" [label="" color=black]
 }
