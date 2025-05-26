@@ -1,0 +1,208 @@
+PV ADD TECH
+house_1.add(
+    technologies.Photovoltaics(
+        "pv0",
+        (53.143890, 8.213889),
+        nominal_power=26.4,
+        weather=weather,
+        surface_azimuth=253,
+        surface_tilt=38,
+        fixed=True,
+    )
+)
+
+
+
+PV PARAMETERS____
+# weather = {
+#     "ghi": "FILE:../../OLT_WIN.:ghi.1",
+#     "dhi": "FILE:../../OLT_WIN.:dhi.1",
+#    # "wind_speed": "FILE:../OLT_WIN.:wind_speed",
+#     "temp_air": "FILE:../../OLT_WIN.:temp_air.1",
+#     "temp_dew": "FILE:../../OLT_WIN.:temp_dew",
+#     "pressure": "FILE:../../OLT_WIN.:pressure",
+# }
+
+SAVE FLOW
+# Save the DataFrame to a CSV file
+output_df.to_csv("energy_flows.csv")
+_________________________________________________________________________________________________________
+"SolphLabel(location='Alhambra', mtress_component='', solph_node='')"
+___________________________________________________________________ 
+
+
+SUBPLOTS 1
+
+fig, axes = plt.subplots(nrows=7, ncols=1, figsize=(12, 18), sharex=True)
+plt.subplots_adjust(hspace=0.5) # Adjust vertical spacing between subplots
+# Plot each energy flow in a separate subplot
+df["PV_production"].plot(ax=axes[0], label="PV Production (W)", color="green")
+axes[0].set_ylabel("Power (W)")
+axes[0].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[0].grid(True)
+
+df["PV_distribution"].plot(ax=axes[1], label="PV Distribution (Wh)", color="lightgreen")
+axes[1].set_ylabel("Energy (Wh)")
+axes[1].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[1].grid(True)
+
+df["Demand2"].plot(ax=axes[2], label="Demand (Wh)", color="red")
+axes[2].set_ylabel("Energy (Wh)")
+axes[2].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[2].grid(True)
+
+df["Grid_import"].plot(ax=axes[3], label="Grid Import (W)", color="blue")
+axes[3].set_ylabel("Energy (Wh)")
+axes[3].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[3].grid(True)
+
+df["Grid_export"].plot(ax=axes[4], label="Grid Export (Wh)", color="yellow")
+axes[4].set_ylabel("Energy (Wh)")
+axes[4].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[4].grid(True)
+
+df["Battery_charge"].plot(ax=axes[5], label="Battery Charge (Wh)", color="orange")
+axes[5].set_ylabel("Energy (Wh)")
+axes[5].legend(bbox_to_anchor=(1, 1), loc='upper right')
+axes[5].grid(True)
+
+df["Battery_discharge"].plot(ax=axes[6], label="Battery Discharge (Wh)", color="purple")
+axes[6].set_xlabel("Time") # Only label the x-axis of the bottom subplot
+axes[6].set_ylabel("Energy (Wh)")
+axes[6].legend(bbox_to_anchor=(1,1), loc='upper right')
+axes[6].grid(True)
+
+fig.suptitle(f"Energy Flows ({start_time} to {end_time})", fontsize=16)
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.show()
+
+
+
+
+
+
+SUBPLOTS 2
+
+# fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(12, 18), sharex=True)
+# plt.subplots_adjust(hspace=0.5) # Adjust vertical spacing between subplots
+# # Plot each energy flow in a separate subplot
+# df["PV_production"].plot(ax=axes[0], label="PV Production (W)", color="green")
+# df["PV_distribution"].plot(ax=axes[0], label="PV Distribution (Wh)", color="lightgreen")
+# axes[0].set_ylabel("Power (W)")
+# axes[0].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[0].grid(True)
+
+
+# df["Demand2"].plot(ax=axes[1], label="Demand (Wh)", color="red")
+# df["Grid_import"].plot(ax=axes[1], label="Grid Import (Wh)", color="blue")
+# axes[1].set_ylabel("Energy (Wh)")
+# axes[1].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[1].grid(True)
+
+# df["Grid_export"].plot(ax=axes[2], label="Grid Export (Wh)", color="yellow")
+# (-df["Grid_import"]).plot(ax=axes[2], label="Grid Import (W)", color="blue")
+# axes[2].set_ylabel("Energy (Wh)")
+# axes[2].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[2].grid(True)
+
+# df["Battery_charge"].plot(ax=axes[3], label="Battery Charge (Wh)", color="orange")
+# (-df["Battery_discharge"]).plot(ax=axes[3], label="Battery Discharge (Wh)", color="purple")
+# axes[3].set_ylabel("Energy (Wh)")
+# axes[3].legend(bbox_to_anchor=(1, 1), loc='upper right')
+# axes[3].grid(True)
+
+# fig.suptitle(f"Energy Flows ({start_time} to {end_time})", fontsize=16)
+# plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+# plt.show()
+
+
+
+
+
+PRINT SUM VALUES
+
+
+# total_pv_production = df["PV_production"].sum() / 1000
+# # total_pv_use = df["PV_distribution"].sum() / 1000
+# total_demand2 = df["Demand2"].sum()/ 1000
+# # total_gridimport = df["Grid_import"].sum()/ 1000
+# # total_gridexport = df["Grid_export"].sum()/ 1000
+# # total_battery_discharge = df["Battery_discharge"].sum()/ 1000
+# # total_battery_charge = df["Battery_charge"].sum()/ 1000
+
+# actual_demand = op_data["Load_W"].sum() / 1000
+# actual_pv_production = op_data["Modelled_Energy"].sum() / 1000
+
+# print("Total PV Production (Actual): {:.2f} kW".format(actual_pv_production))
+# print("Total Demand (Actual): {:.2f} kW".format(actual_demand))
+# print("Total PV Production (Sum of 'PV_production' column): {:.2f} kW".format(total_pv_production))
+# # print("Total PV Used (Sum of 'PV_distribution' column): {:.2f} kW".format(total_pv_use))
+# print("Total Demand (Sum of 'Demand2' column): {:.2f} kW".format(total_demand2))
+# # print("Total Grid Import (Sum of 'Grid_import' column): {:.2f} kW".format(total_gridimport))
+# # print("Total Grid Export (Sum of 'Grid_export' column): {:.2f} kW".format(total_gridexport))
+# # print("Total Battery Discharge (Sum of 'Battery_discharge' column): {:.2f} kW".format(total_battery_discharge))
+# # print("Total Battery Charge (Sum of 'Battery_charge' column): {:.2f} kW".format(total_battery_charge))
+
+
+
+
+
+Battery SOC
+
+# nominal_capacity = 5000  # in Wh
+# charge_eff = 0.77
+# discharge_eff = 0.77
+# soc = [0.5 * nominal_capacity]  # initial SOC in Wh
+
+# for ch, dis in zip(df["Battery_charge"].fillna(0), df["Battery_discharge"].fillna(0)):
+#     prev = soc[-1]
+#     new = prev + ch * charge_eff - dis / discharge_eff
+#     new = max(0, min(nominal_capacity, new))
+#     soc.append(new)
+
+# df["SOC (%)"] = [s / nominal_capacity * 100 for s in soc[1:]]
+
+# # Plot
+# fig_soc, ax_soc = plt.subplots(figsize=(12, 3))
+# df["SOC (%)"].plot(ax=ax_soc, color="black", label="State of Charge (%)")
+# ax_soc.set_ylabel("SOC (%)")
+# ax_soc.set_xlabel("Time")
+# ax_soc.set_title("Battery State of Charge")
+# ax_soc.grid(True)
+# ax_soc.legend(loc="upper right")
+# plt.tight_layout()
+# plt.show()
+
+
+
+SPLICE OP Data
+
+# op_data = pd.read_csv(os.path.join("..","..", "op_data_power.csv"))
+# time_index = {
+#     "start": "2023-12-01 00:00:00",
+#     "end": "2023-12-05 23:59:00",
+#     "freq": "min",
+#     "tz": "Europe/Berlin",
+# }
+
+# start_date_str = time_index["start"][:10]  # Extract date from timestamp
+# end_date_str = time_index["end"][:10]
+
+
+# full_date_range = pd.date_range(start="2022-08-08 00:00:00", periods=len(op_data), freq="min", tz=time_index["tz"])
+
+# # Find matching rows
+# start_row = None
+# end_row = None
+
+# for i, ts in enumerate(full_date_range):
+#     if ts.strftime("%Y-%m-%d") == start_date_str and start_row is None:
+#         start_row = i
+#     if ts.strftime("%Y-%m-%d") == end_date_str:
+#         end_row = i + 1  
+
+# op_data = op_data.iloc[start_row:end_row]
+
+# date_range = pd.date_range(start=full_date_range[start_row], end=full_date_range[end_row-1], freq=time_index["freq"], tz=time_index["tz"])
+
+# op_data.index = date_range

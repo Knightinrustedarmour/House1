@@ -36,9 +36,6 @@ def calculate_soc_from_flows(charge_series, discharge_series, index,
         net_energy_change_wh = charge_energy_wh - discharge_energy_wh
         current_soc_wh += net_energy_change_wh
 
-        # Ensure SOC stays within 0% and 100% (though the problem states no clipping)
-        #current_soc_wh = max(0, min(nominal_capacity_wh, current_soc_wh))
-
         soc_percentage = (current_soc_wh / nominal_capacity_wh) * 100
         soc_values_percent.append(soc_percentage)
 

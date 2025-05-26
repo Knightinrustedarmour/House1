@@ -206,3 +206,8 @@ SPLICE OP Data
 # date_range = pd.date_range(start=full_date_range[start_row], end=full_date_range[end_row-1], freq=time_index["freq"], tz=time_index["tz"])
 
 # op_data.index = date_range
+
+
+I determined the SOC using instantaneous power rates of charge and discharge (hence W)
+at each time step. these W values are converted into Wh while factoring in the efficiency.
+these energy differences the SOC is tracked and presented as %

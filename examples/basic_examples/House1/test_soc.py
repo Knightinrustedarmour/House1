@@ -32,7 +32,7 @@ def soc(charge_series, discharge_series, index,
 
 os.chdir(os.path.dirname(__file__))
 
-results = pd.read_csv(os.path.join("flows", "flow_W_dec23.csv"), header=[0, 1], index_col=0)
+results = pd.read_csv(os.path.join("flows", "flow_W_oct23.csv"), header=[0, 1], index_col=0)
 
 df = pd.DataFrame()
 df["Battery_charge"] = results[[
@@ -61,15 +61,15 @@ df.index = pd.to_datetime(df.index, utc=True)
 df["SOC_%"] = soc(df["Battery_charge"], df["Battery_discharge"], df.index)
 
 # ---- Plotting ----
-start_date = pd.to_datetime('2023-12-01', utc=True).date()
-end_date = pd.to_datetime('2023-12-31', utc=True).date()
-delta = pd.Timedelta(days=5)
-pdf_path = os.path.join("pdf", "soc_dec223.pdf")
+start_date = pd.to_datetime('2023-10-01', utc=True).date()
+end_date = pd.to_datetime('2023-10-31', utc=True).date()
+delta = pd.Timedelta(days=1)
+pdf_path = os.path.join("pdf", "soc_oct23.pdf")
 
 with PdfPages(pdf_path) as pdf:
     current_date = start_date
     while current_date <= end_date:
-        end_interval = current_date + pd.Timedelta(days=4)
+        end_interval = current_date + pd.Timedelta(days=1)
         if end_interval > end_date:
             end_interval = end_date
 
@@ -79,29 +79,29 @@ with PdfPages(pdf_path) as pdf:
         df_filtered = df[(df.index >= start_time_interval) & (df.index <= end_time_interval)].copy()
 
         if not df_filtered.empty:
-            fig, axes = plt.subplots(nrows=3, ncols=1, figsize=(14, 18), sharex=True)
+            fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(21, 9), sharex=True)
             plt.subplots_adjust(hspace=0.4)
 
-            # Plot 1: PV vs Demand
-            df_filtered["PV_distribution"].plot(ax=axes[0], label="PV Distribution (W)", color="green")
-            df_filtered["Demand2"].plot(ax=axes[0], label="Demand (W)", color="red")
+            # # Plot 1: PV vs Demand
+            # df_filtered["PV_distribution"].plot(ax=axes[0], label="PV Distribution (W)", color="green")
+            # df_filtered["Demand2"].plot(ax=axes[0], label="Demand (W)", color="red")
+            # axes[0].set_ylabel("Power (W)")
+            # axes[0].legend()
+            # axes[0].grid(True)
+
+            # Plot 2: Battery flows
+            df_filtered["Battery_charge"].plot(ax=axes[0], label="Battery Charge (W)", color="orange")
+            df_filtered["Battery_discharge"].plot(ax=axes[0], label="Battery Discharge (W)", color="purple", linestyle='--')
             axes[0].set_ylabel("Power (W)")
             axes[0].legend()
             axes[0].grid(True)
 
-            # Plot 2: Battery flows
-            df_filtered["Battery_charge"].plot(ax=axes[1], label="Battery Charge (W)", color="orange")
-            df_filtered["Battery_discharge"].plot(ax=axes[1], label="Battery Discharge (W)", color="purple", linestyle='--')
-            axes[1].set_ylabel("Power (W)")
+            # Plot 3: SOC %
+            df_filtered["SOC_%"].plot(ax=axes[1], label="State of Charge (%)", color="blue")
+            axes[1].set_ylabel("SOC (%)")
+            axes[1].set_xlabel("Time")
             axes[1].legend()
             axes[1].grid(True)
-
-            # Plot 3: SOC %
-            df_filtered["SOC_%"].plot(ax=axes[2], label="State of Charge (%)", color="blue")
-            axes[2].set_ylabel("SOC (%)")
-            axes[2].set_xlabel("Time")
-            axes[2].legend()
-            axes[2].grid(True)
 
             start_str = current_date.strftime('%Y-%m-%d')
             end_str = end_interval.strftime('%Y-%m-%d')
