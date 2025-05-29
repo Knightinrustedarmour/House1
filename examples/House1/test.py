@@ -40,7 +40,7 @@ months_to_simulate = [
 ]
 
 # Create a directory to save the monthly flow data if it doesn't exist
-output_dir = "flows_12k"
+output_dir = "flows_26k"
 os.makedirs(output_dir, exist_ok=True)
 
 for month_info in months_to_simulate:
@@ -87,7 +87,7 @@ for month_info in months_to_simulate:
     ))
     monthly_House1.add(technologies.BatteryStorage(
         name="storage1",
-        nominal_capacity=12000,
+        nominal_capacity=26000,
         charging_C_Rate=0.77,
         discharging_C_Rate=0.77,
         charging_efficiency=0.96,
@@ -112,7 +112,7 @@ for month_info in months_to_simulate:
     output = pd.DataFrame(flows)
     
     # Save flows to a unique CSV file for each month
-    file_name = f"flow_15K_{start_date.strftime('%b%y').lower()}.csv"
+    file_name = f"flow_26K_{start_date.strftime('%b%y').lower()}.csv"
     output.to_csv(os.path.join(output_dir, file_name), index=True)
     print(f"Saved {file_name}")
 
