@@ -1,0 +1,11 @@
+Metric,Value
+Total Period Demand (kWh),19381.32
+Total Period PV Production (kWh),23288.29
+Total Period Grid Import (kWh),8545.85
+Total Period Grid Export (kWh),11874.43
+Total Period Battery Charge (kWh),6603.73
+Total Period Battery Discharge (kWh),6025.35
+Total Period PV Self-Consumption (kWh),11413.86
+Total Period Self-Sufficiency (kWh),17345.76
+Overall Self-Consumption Rate (%),49.01
+Overall Self-Sufficiency Rate (%),89.50

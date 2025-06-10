@@ -5,6 +5,7 @@ import seaborn as sns
 from zipfile import ZipFile
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
+import argparse
 
 # --- 1. SOC Calculation Function (Unchanged) ---
 def soc(charge_series_wmin, discharge_series_wmin, index,
@@ -173,7 +174,7 @@ def export_combined_heatmaps(df_flows, output_dir, scenario_name):
 
 
 # --- Main Processing Function (Modified for SOC and Heatmap calls) ---
-def process_scenario_data(scenario_name, flow_dir, file_dict, capacity):
+def process_scenario_data(scenario_name, flow_dir, file_dict, capacity, column_paths_map):
     print(f"\n--- Processing {scenario_name} Battery Data (Capacity: {capacity} Wh) ---")
 
     # Ensure output directories exist for this scenario
@@ -181,8 +182,17 @@ def process_scenario_data(scenario_name, flow_dir, file_dict, capacity):
     os.makedirs(scenario_output_dir, exist_ok=True)
 
     all_monthly_dfs = []
+    month_order = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 
-    for month_abbr, filename in file_dict.items():
+    has_battery_columns = True # Assume true, then check if 'Battery_charge' or 'Battery_discharge' are missing.
+                               # This helps the 'NoBattery' case where the files might genuinely not have these columns.
+
+    for month_abbr in month_order:
+        filename = file_dict.get(month_abbr)
+        if not filename:
+            print(f"   Warning: No file defined for month '{month_abbr}' in {scenario_name}. Skipping.")
+            continue
+
         filepath = os.path.join(flow_dir, filename)
 
         if not os.path.exists(filepath):
@@ -195,32 +205,34 @@ def process_scenario_data(scenario_name, flow_dir, file_dict, capacity):
 
             monthly_data = pd.DataFrame(index=results.index)
 
-            # Check if battery columns are present (relevant for 'No Battery' scenario)
-            if column_paths["Battery_charge"] in results.columns and column_paths["Battery_discharge"] in results.columns:
-                charge_series = results[[column_paths["Battery_charge"]]].squeeze()
-                discharge_series = results[[column_paths["Battery_discharge"]]].squeeze()
+            # Check if battery columns exist in the loaded data for the current scenario
+            if column_paths_map["Battery_charge"] in results.columns and column_paths_map["Battery_discharge"] in results.columns:
+                charge_series = results[[column_paths_map["Battery_charge"]]].squeeze()
+                discharge_series = results[[column_paths_map["Battery_discharge"]]].squeeze()
 
                 charge_series = charge_series.clip(lower=0)
                 discharge_series = discharge_series.clip(lower=0)
 
-                # Pass the nominal capacity to the SOC function
-                soc_percent_values = soc(
-                    charge_series,
-                    discharge_series,
-                    results.index,
-                    nominal_capacity_wh=capacity # This is where the capacity is passed
-                )
+                # Only calculate SOC if capacity is greater than 0
+                if capacity > 0:
+                    soc_percent_values = soc(
+                        charge_series,
+                        discharge_series,
+                        results.index,
+                        nominal_capacity_wh=capacity
+                    )
+                    monthly_data[f"SOC_{scenario_name}_%"] = pd.Series(soc_percent_values, index=results.index[:len(soc_percent_values)])
+                else: # Capacity is 0 (e.g., NoBattery scenario)
+                    monthly_data[f"SOC_{scenario_name}_%"] = np.nan # SOC is not applicable
 
                 monthly_data[f"Battery_charge_W_{scenario_name}"] = charge_series
                 monthly_data[f"Battery_discharge_W_{scenario_name}"] = discharge_series
-                monthly_data[f"SOC_{scenario_name}_%"] = pd.Series(soc_percent_values, index=results.index[:len(soc_percent_values)])
             else:
+                has_battery_columns = False # Set flag if columns are missing
                 print(f"   Note: Battery flow columns not found in {filename} for {scenario_name}. SOC and heatmap will be skipped.")
-                # If no battery columns, fill with zeros or skip for these metrics
                 monthly_data[f"Battery_charge_W_{scenario_name}"] = 0.0
                 monthly_data[f"Battery_discharge_W_{scenario_name}"] = 0.0
-                monthly_data[f"SOC_{scenario_name}_%"] = np.nan # Or 0, depending on desired representation
-
+                monthly_data[f"SOC_{scenario_name}_%"] = np.nan
 
             monthly_data['Month'] = month_abbr.capitalize()
             all_monthly_dfs.append(monthly_data)
@@ -229,8 +241,10 @@ def process_scenario_data(scenario_name, flow_dir, file_dict, capacity):
 
         except KeyError as e:
             print(f"   Error: Missing expected column in {filename} for {scenario_name}. Error: {e}")
+            has_battery_columns = False # Treat as if columns were missing
         except Exception as e:
             print(f"   An unexpected error occurred while processing {filepath}: {e}")
+            has_battery_columns = False # Treat as if columns were missing
 
     if not all_monthly_dfs:
         print(f"No data was processed for {scenario_name}. Skipping plotting and CSV export.")
@@ -242,43 +256,43 @@ def process_scenario_data(scenario_name, flow_dir, file_dict, capacity):
     yearly_df.to_csv(output_csv_path)
     print(f"Combined data for {scenario_name} exported to: {output_csv_path}")
 
-    # Generate plots
+    # Generate plots only if capacity > 0 AND battery columns were found
     print(f"\n--- Generating plots for {scenario_name} ---")
     all_png_files = []
 
-    # Only generate SOC duration curves if SOC data is present
-    if f"SOC_{scenario_name}_%" in yearly_df.columns and not yearly_df[f"SOC_{scenario_name}_%"].isnull().all():
-        soc_for_duration_curves = yearly_df[[f"SOC_{scenario_name}_%", 'Month']].copy()
-        soc_for_duration_curves.rename(columns={f"SOC_{scenario_name}_%": "SOC_%"}, inplace=True)
-        all_png_files.extend(export_duration_curves(soc_for_duration_curves, scenario_output_dir, scenario_name, capacity))
-    else:
-        print(f"   Skipping SOC duration curves for {scenario_name}: No valid SOC data found.")
+    if capacity > 0 and has_battery_columns:
+        # Only generate SOC duration curves if SOC data is present and not all NaN
+        if f"SOC_{scenario_name}_%" in yearly_df.columns and not yearly_df[f"SOC_{scenario_name}_%"].isnull().all():
+            soc_for_duration_curves = yearly_df[[f"SOC_{scenario_name}_%", 'Month']].copy()
+            soc_for_duration_curves.rename(columns={f"SOC_{scenario_name}_%": "SOC_%"}, inplace=True)
+            all_png_files.extend(export_duration_curves(soc_for_duration_curves, scenario_output_dir, scenario_name, capacity))
+        else:
+            print(f"   Skipping SOC duration curves for {scenario_name}: No valid SOC data found (e.g., all NaNs).")
 
-    # Only generate heatmaps if battery flow data is present
-    if f"Battery_charge_W_{scenario_name}" in yearly_df.columns and f"Battery_discharge_W_{scenario_name}" in yearly_df.columns:
+        # Only generate heatmaps if battery flow data has actual activity
         if not (yearly_df[f"Battery_charge_W_{scenario_name}"].sum() == 0 and yearly_df[f"Battery_discharge_W_{scenario_name}"].sum() == 0):
             all_png_files.extend(export_combined_heatmaps(yearly_df, scenario_output_dir, scenario_name))
         else:
             print(f"   Skipping heatmaps for {scenario_name}: No battery charge/discharge activity detected.")
     else:
-        print(f"   Skipping heatmaps for {scenario_name}: Battery charge/discharge columns not found.")
-
+        print(f"   Skipping all plots for {scenario_name}: Battery capacity is 0 Wh or battery flow columns were not found.")
 
     # Create a zip archive of all generated PNGs for the scenario
-    if all_png_files: # Only create zip if there are plots to include
+    if all_png_files:
         zip_path = os.path.join(scenario_output_dir, f"{scenario_name}_Plots.zip")
         with ZipFile(zip_path, 'w') as zipf:
             for file_path in all_png_files:
                 if os.path.exists(file_path):
                     zipf.write(file_path, arcname=os.path.basename(file_path))
+                    print(f"     Added {os.path.basename(file_path)} to zip.")
                 else:
-                    print(f"   Warning: PNG file not found for zipping: {file_path}")
+                    print(f"     Warning: PNG file not found for zipping: {file_path}")
         print(f"All plots for {scenario_name} zipped to: {zip_path}")
     else:
         print(f"No plots generated for {scenario_name} to zip.")
 
 
-# --- Global Configuration (Updated with new scenarios) ---
+# --- Global Configuration (Updated with 50kWh scenario) ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 column_paths = {
@@ -288,7 +302,7 @@ column_paths = {
 
 scenarios_config = {
     "5kWh": {
-        "flow_dir": os.path.join(script_dir, "flows"), # Original flows folder
+        "flow_dir": os.path.join(script_dir, "flows"),
         "files": {
             'jan': 'flow_W_jan23.csv', 'feb': 'flow_W_feb23.csv',
             'mar': 'flow_W_mar23.csv', 'apr': 'flow_W_apr23.csv', 'may': 'flow_W_may23.csv',
@@ -296,9 +310,9 @@ scenarios_config = {
             'sep': 'flow_W_sep23.csv', 'oct': 'flow_W_oct23.csv', 'nov': 'flow_W_nov23.csv',
             'dec': 'flow_W_dec23.csv'
         },
-        "capacity": 5000 # 5 kWh = 5000 Wh
+        "capacity": 5000
     },
-    "NoBattery": { # Added 'NoBattery' scenario with 0 capacity
+    "NoBattery": {
         "flow_dir": os.path.join(script_dir, "flows_nobattery"),
         "files": {
             'jan': 'flow_NB_jan23.csv', 'feb': 'flow_NB_feb23.csv',
@@ -307,7 +321,7 @@ scenarios_config = {
             'sep': 'flow_NB_sep23.csv', 'oct': 'flow_NB_oct23.csv', 'nov': 'flow_NB_nov23.csv',
             'dec': 'flow_NB_dec23.csv'
         },
-        "capacity": 0 # No battery, so nominal capacity is 0 or very small for calculations, though SOC calculation will be skipped.
+        "capacity": 0 # Explicitly 0 for no battery
     },
     "8kWh": {
         "flow_dir": os.path.join(script_dir, "flows_8k"),
@@ -318,7 +332,7 @@ scenarios_config = {
             'sep': 'flow_8k_sep23.csv', 'oct': 'flow_8k_oct23.csv', 'nov': 'flow_8k_nov23.csv',
             'dec': 'flow_8k_dec23.csv'
         },
-        "capacity": 8000 # 8 kWh = 8000 Wh
+        "capacity": 8000
     },
     "12kWh": {
         "flow_dir": os.path.join(script_dir, "flows_12k"),
@@ -329,7 +343,7 @@ scenarios_config = {
             'sep': 'flow_12k_sep23.csv', 'oct': 'flow_12k_oct23.csv', 'nov': 'flow_12k_nov23.csv',
             'dec': 'flow_12k_dec23.csv'
         },
-        "capacity": 12000 # 12 kWh = 12000 Wh
+        "capacity": 12000
     },
     "15kWh": {
         "flow_dir": os.path.join(script_dir, "flows_15k"),
@@ -340,7 +354,7 @@ scenarios_config = {
             'sep': 'flow_15k_sep23.csv', 'oct': 'flow_15k_oct23.csv', 'nov': 'flow_15k_nov23.csv',
             'dec': 'flow_15k_dec23.csv'
         },
-        "capacity": 15000 # 15 kWh = 15000 Wh
+        "capacity": 15000
     },
     "20kWh": {
         "flow_dir": os.path.join(script_dir, "flows_20k"),
@@ -351,7 +365,7 @@ scenarios_config = {
             'sep': 'flow_20k_sep23.csv', 'oct': 'flow_20k_oct23.csv', 'nov': 'flow_20k_nov23.csv',
             'dec': 'flow_20k_dec23.csv'
         },
-        "capacity": 20000 # 20 kWh = 20000 Wh
+        "capacity": 20000
     },
     "26kWh": {
         "flow_dir": os.path.join(script_dir, "flows_26k"),
@@ -362,7 +376,19 @@ scenarios_config = {
             'sep': 'flow_26k_sep23.csv', 'oct': 'flow_26k_oct23.csv', 'nov': 'flow_26k_nov23.csv',
             'dec': 'flow_26k_dec23.csv'
         },
-        "capacity": 26000 # 26 kWh = 26000 Wh
+        "capacity": 26000
+    },
+    # --- NEW: 50kWh Scenario ---
+    "50kWh": {
+        "flow_dir": os.path.join(script_dir, "flows_50k"), # Make sure this folder exists
+        "files": {
+            'jan': 'flow_50k_jan23.csv', 'feb': 'flow_50k_feb23.csv',
+            'mar': 'flow_50k_mar23.csv', 'apr': 'flow_50k_apr23.csv', 'may': 'flow_50k_may23.csv',
+            'jun': 'flow_50k_jun23.csv', 'jul': 'flow_50k_jul23.csv', 'aug': 'flow_50k_aug23.csv',
+            'sep': 'flow_50k_sep23.csv', 'oct': 'flow_50k_oct23.csv', 'nov': 'flow_50k_nov23.csv',
+            'dec': 'flow_50k_dec23.csv'
+        },
+        "capacity": 50000
     }
 }
 
@@ -371,41 +397,41 @@ scenarios_config = {
 if __name__ == "__main__":
     os.makedirs(os.path.join(script_dir, "output"), exist_ok=True)
 
-    for name, config in scenarios_config.items():
-        # Only process scenarios with a battery capacity > 0 for SOC and heatmaps
-        # or handle 'NoBattery' gracefully by skipping specific plots.
-        if config["capacity"] > 0:
-            process_scenario_data(name, config["flow_dir"], config["files"], config["capacity"])
-        else: # For 'NoBattery' scenario
-            print(f"\n--- Skipping SOC and heatmap processing for {name} scenario (Capacity: {config['capacity']} Wh) ---")
-            # We still need to read files to check for structure, but won't do SOC or heatmaps
-            # We can still create the scenario-specific output directory and combined CSV if needed for other data points
-            scenario_output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output", name)
-            os.makedirs(scenario_output_dir, exist_ok=True)
-            all_monthly_dfs_nobat = []
-            for month_abbr, filename in config["files"].items():
-                filepath = os.path.join(config["flow_dir"], filename)
-                if os.path.exists(filepath):
-                    try:
-                        results = pd.read_csv(filepath, header=[0, 1], index_col=0)
-                        results.index = pd.to_datetime(results.index, utc=True)
-                        monthly_data = pd.DataFrame(index=results.index)
-                        monthly_data[f"Battery_charge_W_{name}"] = 0.0 # Explicitly zero
-                        monthly_data[f"Battery_discharge_W_{name}"] = 0.0 # Explicitly zero
-                        monthly_data[f"SOC_{name}_%"] = np.nan # Not applicable
-                        monthly_data['Month'] = month_abbr.capitalize()
-                        all_monthly_dfs_nobat.append(monthly_data)
-                    except Exception as e:
-                        print(f"   Error processing {filepath} for {name}: {e}")
-                else:
-                    print(f"   Warning: File not found for {name}: {filepath}")
-            if all_monthly_dfs_nobat:
-                yearly_df_nobat = pd.concat(all_monthly_dfs_nobat)
-                output_csv_path_nobat = os.path.join(scenario_output_dir, f"Combined_Battery_Data_{name}.csv")
-                yearly_df_nobat.to_csv(output_csv_path_nobat)
-                print(f"Combined data for {name} exported to: {output_csv_path_nobat}")
-            else:
-                print(f"   No data found to process for {name}.")
+    parser = argparse.ArgumentParser(
+        description="Calculate SOC and generate heatmaps for battery energy flows.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
 
+    available_scenario_names = sorted(list(scenarios_config.keys()))
 
-    print("\nAll battery SOC processing, CSV export, and plot generation completed.")
+    parser.add_argument(
+        '--scenario',
+        type=str,
+        choices=available_scenario_names + ['all'],
+        help=f"Specify the scenario to analyze and plot battery data.\n"
+             f"Choose from: {', '.join(available_scenario_names)}\n"
+             f"Use 'all' to process all defined scenarios (default).",
+        default='all'
+    )
+    args = parser.parse_args()
+
+    scenarios_to_process = []
+    if args.scenario == 'all':
+        scenarios_to_process = available_scenario_names
+        print("Processing all defined scenarios...")
+    elif args.scenario in scenarios_config:
+        scenarios_to_process = [args.scenario]
+        print(f"Processing only the '{args.scenario}' scenario...")
+    else:
+        print(f"Error: Scenario '{args.scenario}' not recognized. Please choose from {available_scenario_names} or 'all'.")
+        exit(1) # Exit with an error code
+
+    for name in scenarios_to_process:
+        config = scenarios_config[name]
+        # Always call process_scenario_data for all scenarios.
+        # Inside process_scenario_data, it will decide whether to calculate SOC and generate plots
+        # based on the 'capacity' and the actual presence of battery columns.
+        process_scenario_data(name, config["flow_dir"], config["files"], config["capacity"], column_paths)
+
+    print("\nAll battery SOC processing, CSV export, and plot generation completed for the selected scenario(s).")
+    print("Check the 'output' folder for scenario-specific data and plots.")

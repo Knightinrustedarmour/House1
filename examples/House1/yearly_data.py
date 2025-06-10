@@ -1,18 +1,19 @@
 import os
 import pandas as pd
+import argparse # Import argparse
 
 # Get the directory of the current script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Define input and output directories for all scenarios
-flows_dir_5k_battery = os.path.join(script_dir, "flows") # Original scenario, now named 5kWh battery
-flows_dir_nobattery = os.path.join(script_dir, "flows_nobattery") # Scenario without battery
-flows_dir_8k_battery = os.path.join(script_dir, "flows_8k") # New scenario with 8kWh battery
-flows_dir_12k_battery = os.path.join(script_dir, "flows_12k") # New scenario with 12kWh battery
-flows_dir_15k_battery = os.path.join(script_dir, "flows_15k") # New scenario with 15kWh battery
-flows_dir_20k_battery = os.path.join(script_dir, "flows_20k") # New scenario with 20kWh battery
-flows_dir_26k_battery = os.path.join(script_dir, "flows_26k") # New scenario with 26kWh battery
-
+flows_dir_5k_battery = os.path.join(script_dir, "flows")
+flows_dir_nobattery = os.path.join(script_dir, "flows_nobattery")
+flows_dir_8k_battery = os.path.join(script_dir, "flows_8k")
+flows_dir_12k_battery = os.path.join(script_dir, "flows_12k")
+flows_dir_15k_battery = os.path.join(script_dir, "flows_15k")
+flows_dir_20k_battery = os.path.join(script_dir, "flows_20k")
+flows_dir_26k_battery = os.path.join(script_dir, "flows_26k")
+flows_dir_50k_battery = os.path.join(script_dir, "flows_50k") # 50kWh battery scenario
 
 output_dir = os.path.join(script_dir, "output")
 os.makedirs(output_dir, exist_ok=True) # Create 'output' directory if it doesn't exist
@@ -42,7 +43,6 @@ target_files_8k_battery = {
     'dec': 'flow_8k_dec23.csv'
 }
 
-# New battery capacities
 target_files_12k_battery = {
     'jan': 'flow_12k_jan23.csv', 'feb': 'flow_12k_feb23.csv',
     'mar': 'flow_12k_mar23.csv', 'apr': 'flow_12k_apr23.csv', 'may': 'flow_12k_may23.csv',
@@ -73,6 +73,14 @@ target_files_26k_battery = {
     'jun': 'flow_26k_jun23.csv', 'jul': 'flow_26k_jul23.csv', 'aug': 'flow_26k_aug23.csv',
     'sep': 'flow_26k_sep23.csv', 'oct': 'flow_26k_oct23.csv', 'nov': 'flow_26k_nov23.csv',
     'dec': 'flow_26k_dec23.csv'
+}
+
+target_files_50k_battery = {
+    'jan': 'flow_50k_jan23.csv', 'feb': 'flow_50k_feb23.csv',
+    'mar': 'flow_50k_mar23.csv', 'apr': 'flow_50k_apr23.csv', 'may': 'flow_50k_may23.csv',
+    'jun': 'flow_50k_jun23.csv', 'jul': 'flow_50k_jul23.csv', 'aug': 'flow_50k_aug23.csv',
+    'sep': 'flow_50k_sep23.csv', 'oct': 'flow_50k_oct23.csv', 'nov': 'flow_50k_nov23.csv',
+    'dec': 'flow_50k_dec23.csv'
 }
 
 
@@ -145,14 +153,7 @@ def analyze_scenario(scenario_identifier, flows_directory, target_files_dict, di
             pv_self_consumption_kwh = total_pv_distribution_kwh
 
             # Self-Sufficiency: No clipping applied
-            # This is the demand covered by own generation (PV + battery discharge)
-            self_sufficiency_kwh = total_pv_distribution_kwh + total_battery_discharge_kwh 
-            # Or, more directly: total demand - what was imported from grid
-            self_sufficiency_kwh_alt = total_demand_kwh - total_grid_import_kwh
-            
             # For this context, assuming self-sufficiency is (total demand - grid import) makes most sense
-            # If battery discharge is explicitly for demand, then using PV_distribution + battery discharge is also valid.
-            # Sticking to the previous definition for consistency if it was intended.
             self_sufficiency_kwh = total_demand_kwh - total_grid_import_kwh
 
 
@@ -176,11 +177,11 @@ def analyze_scenario(scenario_identifier, flows_directory, target_files_dict, di
     summary_df.index.name = "Month"
 
     print(f"\n--- MONTHLY ENERGY FLOW SUMMARY ({display_name.upper()}) ---")
-    print(f"    (All values in KiloWatt-hours)       \n")
+    print(f"        (All values in KiloWatt-hours)        \n")
     print(summary_df.to_string(float_format="%.2f") + "\n")
 
     print(f"\n--- TOTAL ENERGY FLOW SUMMARY (Jan-Dec, {display_name.upper()}) ---")
-    print(f"    (All values in KiloWatt-hours)       \n")
+    print(f"        (All values in KiloWatt-hours)        \n")
 
     total_demand_period_kwh = sum(data["Demand (kWh)"] for data in monthly_summary.values())
     total_pv_production_period_kwh = sum(data["PV Production (kWh)"] for data in monthly_summary.values())
@@ -193,10 +194,10 @@ def analyze_scenario(scenario_identifier, flows_directory, target_files_dict, di
     total_pv_self_consumption_period_kwh = sum(data["PV Self-Consumption (kWh)"] for data in monthly_summary.values())
     total_self_sufficiency_period_kwh = total_demand_period_kwh - total_grid_import_kwh
 
-    print(f"Total Period Demand:            {total_demand_period_kwh:.2f} kWh")
-    print(f"Total Period PV Production:   {total_pv_production_period_kwh:.2f} kWh")
-    print(f"Total Period Grid Import:       {total_grid_import_period_kwh:.2f} kWh")
-    print(f"Total Period Grid Export:       {total_grid_export_period_kwh:.2f} kWh")
+    print(f"Total Period Demand:           {total_demand_period_kwh:.2f} kWh")
+    print(f"Total Period PV Production:    {total_pv_production_period_kwh:.2f} kWh")
+    print(f"Total Period Grid Import:      {total_grid_import_period_kwh:.2f} kWh")
+    print(f"Total Period Grid Export:      {total_grid_export_period_kwh:.2f} kWh")
     if has_battery:
         print(f"Total Period Battery Charge: {total_battery_charge_period_kwh:.2f} kWh")
         print(f"Total Period Battery Discharge: {total_battery_discharge_period_kwh:.2f} kWh")
@@ -262,27 +263,120 @@ def analyze_scenario(scenario_identifier, flows_directory, target_files_dict, di
     return summary_df, yearly_summary_df
 
 
-# --- Run analysis for all scenarios ---
-print("Starting analysis for 'Battery (5kWh)' scenario...")
-battery_5k_monthly_df, battery_5k_yearly_df = analyze_scenario("battery_5k", flows_dir_5k_battery, target_files_5k_battery, "Battery (5kWh)", has_battery=True)
+# --- CENTRAL SCENARIO CONFIGURATION ---
+# This dictionary maps simple scenario names to their full analysis parameters.
+# Add or remove scenarios here as needed.
+scenario_definitions = {
+    "5kWh": {
+        "identifier": "battery_5k",
+        "flows_dir": flows_dir_5k_battery,
+        "target_files": target_files_5k_battery,
+        "display_name": "Battery (5kWh)",
+        "has_battery": True
+    },
+    "NoBattery": {
+        "identifier": "nobattery",
+        "flows_dir": flows_dir_nobattery,
+        "target_files": target_files_nobattery,
+        "display_name": "No Battery",
+        "has_battery": False
+    },
+    "8kWh": {
+        "identifier": "battery_8k",
+        "flows_dir": flows_dir_8k_battery,
+        "target_files": target_files_8k_battery,
+        "display_name": "Battery (8kWh)",
+        "has_battery": True
+    },
+    "12kWh": {
+        "identifier": "battery_12k",
+        "flows_dir": flows_dir_12k_battery,
+        "target_files": target_files_12k_battery,
+        "display_name": "Battery (12kWh)",
+        "has_battery": True
+    },
+    "15kWh": {
+        "identifier": "battery_15k",
+        "flows_dir": flows_dir_15k_battery,
+        "target_files": target_files_15k_battery,
+        "display_name": "Battery (15kWh)",
+        "has_battery": True
+    },
+    "20kWh": {
+        "identifier": "battery_20k",
+        "flows_dir": flows_dir_20k_battery,
+        "target_files": target_files_20k_battery,
+        "display_name": "Battery (20kWh)",
+        "has_battery": True
+    },
+    "26kWh": {
+        "identifier": "battery_26k",
+        "flows_dir": flows_dir_26k_battery,
+        "target_files": target_files_26k_battery,
+        "display_name": "Battery (26kWh)",
+        "has_battery": True
+    },
+    "50kWh": { # NEW 50kWh entry
+        "identifier": "battery_50k",
+        "flows_dir": flows_dir_50k_battery,
+        "target_files": target_files_50k_battery,
+        "display_name": "Battery (50kWh)",
+        "has_battery": True
+    }
+}
 
-print("\nStarting analysis for 'No Battery' scenario...")
-nobattery_monthly_df, nobattery_yearly_df = analyze_scenario("nobattery", flows_dir_nobattery, target_files_nobattery, "No Battery", has_battery=False)
 
-print("\nStarting analysis for 'Battery (8kWh)' scenario...")
-battery_8k_monthly_df, battery_8k_yearly_df = analyze_scenario("battery_8k", flows_dir_8k_battery, target_files_8k_battery, "Battery (8kWh)", has_battery=True)
+if __name__ == "__main__":
+    # --- Argument Parsing ---
+    parser = argparse.ArgumentParser(
+        description="Analyze energy flows for specific or all battery scenarios.",
+        formatter_class=argparse.RawTextHelpFormatter # For better help message formatting
+    )
+    
+    # Get available scenario names for choices, sorted for clarity
+    available_scenarios = sorted(list(scenario_definitions.keys()))
+    
+    parser.add_argument(
+        '--scenario',
+        type=str,
+        choices=available_scenarios + ['all'], # Allow selecting 'all' or specific scenarios
+        help=f"Specify the scenario to analyze.\n"
+             f"Choose from: {', '.join(available_scenarios)}\n"
+             f"Use 'all' to run analysis for all scenarios (default).",
+        default='all' # Default to 'all' if no argument is given
+    )
+    args = parser.parse_args()
 
-print("\nStarting analysis for 'Battery (12kWh)' scenario...")
-battery_12k_monthly_df, battery_12k_yearly_df = analyze_scenario("battery_12k", flows_dir_12k_battery, target_files_12k_battery, "Battery (12kWh)", has_battery=True)
+    # --- Conditional Execution ---
+    if args.scenario == 'all':
+        print("Analyzing all scenarios...")
+        for scenario_name, params in scenario_definitions.items():
+            # Ensure output directory for each scenario exists
+            scenario_output_path = os.path.join(output_dir, params["identifier"])
+            os.makedirs(scenario_output_path, exist_ok=True)
+            analyze_scenario(
+                params["identifier"],
+                params["flows_dir"],
+                params["target_files"],
+                params["display_name"],
+                params["has_battery"]
+            )
+    else:
+        # Check if the chosen scenario exists in our definitions
+        if args.scenario in scenario_definitions:
+            params = scenario_definitions[args.scenario]
+            print(f"Analyzing only the '{args.scenario}' scenario...")
+            # Ensure output directory for the selected scenario exists
+            scenario_output_path = os.path.join(output_dir, params["identifier"])
+            os.makedirs(scenario_output_path, exist_ok=True)
+            analyze_scenario(
+                params["identifier"],
+                params["flows_dir"],
+                params["target_files"],
+                params["display_name"],
+                params["has_battery"]
+            )
+        else:
+            print(f"Error: Scenario '{args.scenario}' not recognized. Please choose from {available_scenarios} or 'all'.")
 
-print("\nStarting analysis for 'Battery (15kWh)' scenario...")
-battery_15k_monthly_df, battery_15k_yearly_df = analyze_scenario("battery_15k", flows_dir_15k_battery, target_files_15k_battery, "Battery (15kWh)", has_battery=True)
-
-print("\nStarting analysis for 'Battery (20kWh)' scenario...")
-battery_20k_monthly_df, battery_20k_yearly_df = analyze_scenario("battery_20k", flows_dir_20k_battery, target_files_20k_battery, "Battery (20kWh)", has_battery=True)
-
-print("\nStarting analysis for 'Battery (26kWh)' scenario...")
-battery_26k_monthly_df, battery_26k_yearly_df = analyze_scenario("battery_26k", flows_dir_26k_battery, target_files_26k_battery, "Battery (26kWh)", has_battery=True)
-
-
-print("\nAll scenario data generation complete. Check the 'output' folder for new CSV summaries.")
+    print("\nAnalysis execution complete.")

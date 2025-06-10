@@ -40,7 +40,7 @@ months_to_simulate = [
 ]
 
 # Create a directory to save the monthly flow data if it doesn't exist
-output_dir = "flows_26k"
+output_dir = "flows_50k"
 os.makedirs(output_dir, exist_ok=True)
 
 for month_info in months_to_simulate:
@@ -87,7 +87,7 @@ for month_info in months_to_simulate:
     ))
     monthly_House1.add(technologies.BatteryStorage(
         name="storage1",
-        nominal_capacity=26000,
+        nominal_capacity=50000,
         charging_C_Rate=0.77,
         discharging_C_Rate=0.77,
         charging_efficiency=0.96,
