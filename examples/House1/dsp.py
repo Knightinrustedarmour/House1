@@ -5,16 +5,15 @@ import seaborn as sns
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 from zipfile import ZipFile
-from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize
 import argparse 
 
-def generate_soc_density_scatter_plots(base_output_dir, scenarios_config):
+def generate_soc_density_plots(base_output_dir, scenarios_config):
     """
     Generates and saves 2D Kernel Density Estimate (KDE) plots
     showing the density of SOC levels across hours of the day for each battery scenario.
     The x-axis will be SOC (as whole numbers), y-axis will be Hour of Day,
     and color intensity will represent density of occurrences, with a numerical colorbar.
+    This version focuses only on the central 2D density plot, without marginal subplots.
 
     Args:
         base_output_dir (str): The base directory where scenario output folders are located.
@@ -22,7 +21,6 @@ def generate_soc_density_scatter_plots(base_output_dir, scenarios_config):
                                  including scenario names and their capacities.
     """
     print("\n--- Generating SOC Density Plots ---")
-    # Debug print: Show what scenarios are actually being processed by the function
     print(f"DEBUG: Scenarios selected for processing: {list(scenarios_config.keys())}")
 
     if not scenarios_config:
@@ -34,13 +32,11 @@ def generate_soc_density_scatter_plots(base_output_dir, scenarios_config):
 
     with PdfPages(pdf_output_path) as pdf:
         for scenario_name, config in scenarios_config.items():
-            # Skip scenarios with no battery capacity or where SOC is not applicable
             if config["capacity"] <= 0:
                 print(f"    Skipping {scenario_name}: No battery capacity.")
                 continue
 
             scenario_output_dir = os.path.join(base_output_dir, scenario_name)
-            # Ensure the specific scenario's output directory exists
             os.makedirs(scenario_output_dir, exist_ok=True)
 
             csv_path = os.path.join(scenario_output_dir, f"Combined_Battery_Data_{scenario_name}.csv")
@@ -57,11 +53,7 @@ def generate_soc_density_scatter_plots(base_output_dir, scenarios_config):
                     print(f"    Warning: SOC data column '{soc_col_name}' not found or is empty for {scenario_name}. Skipping plot.")
                     continue
 
-                # Prepare the data for plotting
-                # Round SOC to nearest integer as requested
-                soc_data_int = df[soc_col_name].dropna().astype(int).clip(0, 100) # Ensure SOC is within 0-100 after rounding
-                
-                # Get hours directly from the index of the cleaned SOC data
+                soc_data_int = df[soc_col_name].dropna().astype(int).clip(0, 100)
                 hour_of_day = soc_data_int.index.hour 
 
                 if soc_data_int.empty:
@@ -70,42 +62,42 @@ def generate_soc_density_scatter_plots(base_output_dir, scenarios_config):
 
                 print(f"    Generating density plot for {scenario_name}...")
 
-                # Create a DataFrame for jointplot
-                plot_df = pd.DataFrame({
-                    'SOC_%': soc_data_int,
-                    'Hour of Day': hour_of_day
-                })
+                # Create a figure and an axes for the plot
+                fig, ax = plt.subplots(figsize=(10, 7)) # Adjust size as needed
 
-                # Use JointGrid with kind='kde' for a 2D density plot
-                # Choose a colormap, e.g., 'viridis', 'plasma', 'magma', 'cividis'
-                cmap = 'viridis' 
-                g = sns.jointplot(x='SOC_%', y='Hour of Day', data=plot_df, kind='kde', fill=True,
-                                  cmap=cmap, xlim=(0, 100), ylim=(0, 23),
-                                  colorbar=True, # Explicitly enable colorbar
-                                  cbar_kws={"label": "Density of Occurrences"}) # Add label to colorbar
+                # Use seaborn.kdeplot directly for the 2D density plot
+                # This plots the density contours and fills them with color
+                kde_plot = sns.kdeplot(x=soc_data_int, y=hour_of_day, fill=True,
+                                       cmap='viridis', cbar=True, # Enable colorbar directly
+                                       cbar_kws={"label": "Density of Occurrences"}, # Label for the colorbar
+                                       ax=ax, # Draw on the created axes
+                                       clip=((0, 100), (0, 23))) # Clip to desired range, important for kdeplot
 
                 # Set titles and labels
-                g.set_axis_labels("SOC (%)", "Hour of Day")
-                g.fig.suptitle(f"SOC Density Plot - {scenario_name}\n(Capacity: {config['capacity'] / 1000:.1f} kWh)", y=0.98) 
+                ax.set_xlabel("SOC (%)")
+                ax.set_ylabel("Hour of Day")
+                ax.set_title(f"SOC Density Plot - {scenario_name}\n(Capacity: {config['capacity'] / 1000:.1f} kWh)", y=1.02) # Adjust title position
 
                 # Set specific ticks for hours and SOC
-                g.ax_joint.set_xticks(range(0, 101, 10)) # SOC from 0 to 100, step 10
-                g.ax_joint.set_yticks(range(0, 24, 2)) # Hours from 0 to 23, step 2
-                g.ax_joint.grid(True, linestyle='--', alpha=0.6)
+                ax.set_xticks(range(0, 101, 10)) # SOC from 0 to 100, step 10
+                ax.set_yticks(range(0, 24, 2)) # Hours from 0 to 23, step 2
+                ax.grid(True, linestyle='--', alpha=0.6)
 
-                # Adjust the top margin to make space for the suptitle
-                g.fig.subplots_adjust(top=0.88) 
+                # Ensure plot limits match desired ranges
+                ax.set_xlim(0, 100)
+                ax.set_ylim(0, 23)
 
-                # Removed manual ScalarMappable and cbar_ax creation as jointplot handles it now
+                # Adjust layout to prevent labels/titles from overlapping
+                plt.tight_layout(rect=[0, 0, 0.95, 0.98]) # Adjust rect to make space for suptitle and potential cbar
 
                 # Save to PDF
-                pdf.savefig(g.fig)
+                pdf.savefig(fig)
 
                 # Save to PNG
                 png_path = os.path.join(scenario_output_dir, f"{scenario_name}_SOC_Density_Plot.png")
-                g.fig.savefig(png_path, dpi=300)
+                fig.savefig(png_path, dpi=300)
                 all_png_files.append(png_path)
-                plt.close(g.fig) # Close the figure to free up memory
+                plt.close(fig) # Close the figure to free up memory
 
             except Exception as e:
                 print(f"    An error occurred while processing {csv_path} for plotting: {e}")
@@ -155,13 +147,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Debug print: Shows what argparse parsed from your command line
     print(f"DEBUG: Parsed arguments object: {args}")
     print(f"DEBUG: Value of 'scenarios' argument: {args.scenarios}")
 
     # 2. Determine which scenarios to process based on arguments
-    if args.scenarios: # This condition is True if --scenarios was provided with any value
-        # Filter the full_scenarios_config to include only requested scenarios
+    if args.scenarios:
         selected_scenarios_config = {}
         for s_name in args.scenarios:
             if s_name in full_scenarios_config:
@@ -172,10 +162,10 @@ if __name__ == "__main__":
         if not selected_scenarios_config:
             print(f"Error: No valid scenarios found to plot from your input: {args.scenarios}.")
             print(f"Available scenarios are: {list(full_scenarios_config.keys())}")
-            exit() # Exit if no valid scenarios could be picked based on user input
+            exit()
         
         print(f"Processing only the following specified scenarios: {list(selected_scenarios_config.keys())}")
-    else: # This block runs if --scenarios was NOT provided
+    else:
         selected_scenarios_config = full_scenarios_config
         print("No specific scenarios requested. Processing all available scenarios.")
 
@@ -184,5 +174,4 @@ if __name__ == "__main__":
         print(f"Error: Base output directory '{base_output_directory}' not found.")
         print("Please ensure your 'output' directory exists and contains scenario subfolders with CSVs.")
     else:
-        generate_soc_density_scatter_plots(base_output_directory, selected_scenarios_config)
-
+        generate_soc_density_plots(base_output_directory, selected_scenarios_config)
