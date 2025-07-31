@@ -1,9 +1,0 @@
-Metric,Value
-Total Yearly Demand (kWh),1162879.44
-Total Yearly PV Production (kWh),428761.60
-Total Yearly Grid Import (kWh),745639.63
-Total Yearly Battery Discharge (kWh),128518.38
-Yearly CO2 from PV Production (gCO2eq),9432755.18
-Yearly CO2 from Grid Import (gCO2eq),351196263.87
-Yearly CO2 from Battery Discharge (gCO2eq),10795543.77
-Total Yearly CO2 Emissions (gCO2eq),371424562.81

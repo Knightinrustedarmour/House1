@@ -7,20 +7,20 @@ import re
 # Define CO2 emission factors in gCO2eq/kWh
 CO2_EMISSION_FACTORS = {
     "PV_production": 22,
-    "Battery_discharge": 84,
-    "Grid_import": 471, # German electricity mix for 2023
+    "Battery_discharge": 53,
+    "Grid_import": 471, 
 }
 
 # Estimated CO2 footprint from battery manufacturing in gCO2eq
 # Source: Values provided by user (converted from kgCO2eq to gCO2eq)
 BATTERY_MANUFACTURING_CO2_G = {
-    "5kWh": 5 * 310 * 1000,    # 5 kWh capacity * 310 kg/kWh * 1000 g/kg
-    "8kWh": 8 * 496 * 1000,
-    "12kWh": 12 * 744 * 1000,
-    "15kWh": 15 * 930 * 1000,
-    "20kWh": 20 * 1240 * 1000,
-    "26kWh": 26 * 1612 * 1000,
-    "50kWh": 50 * 3100 * 1000,
+    "5kWh": 5 * 109 * 50,      # 5 kWh capacity * 109 kg/kWh * 1000 g/kg / 20 per year lifespan
+    "8kWh": 8 * 109 * 50,
+    "12kWh": 12 * 109 * 50,
+    "15kWh": 15 * 109 * 50,
+    "20kWh": 20 * 109 * 50,
+    "26kWh": 26 * 109 * 50,
+    "50kWh": 50 * 109 * 50,
 }
 
 # Define column paths for flows
@@ -44,9 +44,7 @@ FLOW_COLUMN_PATHS = {
 }
 
 def _get_simplified_solph_label_string(solph_label_str):
-    """
-    Converts a string representation of SolphLabel to its internal tuple string.
-    """
+    """Converts a string representation of SolphLabel to its internal tuple string."""
     match = re.search(r"location='([^']+)', mtress_component='([^']+)', solph_node='([^']+)'", solph_label_str)
     if match:
         location, component, node = match.groups()
@@ -54,9 +52,7 @@ def _get_simplified_solph_label_string(solph_label_str):
     return None
 
 def get_column_data(df, flow_name, scenario_config):
-    """
-    Gets column data using two potential naming conventions.
-    """
+    """Gets column data using two potential naming conventions."""
     expected_col_path_solphlabel = FLOW_COLUMN_PATHS[flow_name]
     
     if expected_col_path_solphlabel in df.columns:
@@ -77,9 +73,7 @@ def get_column_data(df, flow_name, scenario_config):
     return pd.Series(0.0, index=df.index)
 
 def calculate_monthly_co2_emissions(scenario_identifier, scenario_config):
-    """
-    Calculates monthly and yearly CO2 emissions for a given scenario.
-    """
+    """Calculates monthly and yearly CO2 emissions for a given scenario."""
     monthly_data = []
     for month_name, filename in scenario_config["files"].items():
         filepath = os.path.join(scenario_config["flow_dir"], filename)
@@ -138,7 +132,6 @@ def calculate_monthly_co2_emissions(scenario_identifier, scenario_config):
     yearly_co2_battery_discharge = df_monthly["CO2 from Battery Discharge (gCO2eq)"].sum()
 
     yearly_total_co2_emissions = yearly_co2_pv + yearly_co2_grid_import + yearly_co2_battery_discharge
-
 
     yearly_summary = pd.DataFrame({
         "Metric": [
@@ -279,7 +272,7 @@ scenarios_config = {
 }
 
 if __name__ == "__main__":
-    output_dir = os.path.join(script_dir, "output","carbon_footprint_analysis")
+    output_dir = os.path.join(script_dir, "output","carbon_footprint_analysis1")
     os.makedirs(output_dir, exist_ok=True)
 
     all_monthly_dfs = {}
@@ -309,7 +302,6 @@ if __name__ == "__main__":
     # Generate comparative plots for specific monthly CO2 metrics only
     print("\nGenerating selected monthly comparative plots...")
 
-    # Removed: "Total Demand (kWh)", "PV Production (kWh)", "Grid Import (kWh)", "Battery Discharge (kWh)"
     plot_metrics = [
         "Total CO2 Emissions (gCO2eq)",
         "CO2 from PV Production (gCO2eq)",
@@ -340,7 +332,7 @@ if __name__ == "__main__":
 
             if metric == "CO2 from Battery Discharge (gCO2eq)":
                 for bat_size_str, co2_val in BATTERY_MANUFACTURING_CO2_G.items():
-                    if bat_size_str in all_monthly_dfs:
+                    if bat_size_str in all_monthly_dfs: # Only plot if a scenario for this battery size exists
                         ax.axhline(
                             y=co2_val, 
                             color='r', 
@@ -366,6 +358,7 @@ if __name__ == "__main__":
 
         for scenario in scenario_names:
             yearly_df = all_yearly_dfs[scenario]
+            # Ensure we're getting the 'Total Yearly CO2 Emissions (gCO2eq)' which is the operational CO2
             op_co2 = yearly_df.loc["Total Yearly CO2 Emissions (gCO2eq)", "Value"]
             operational_co2.append(op_co2)
 
@@ -391,6 +384,18 @@ if __name__ == "__main__":
         plt.legend()
         plt.grid(axis='y', linestyle='--', alpha=0.7)
         plt.tight_layout()
+        
+        # Annotate stacked bars
+        for i in indices:
+            total_height = manufacturing_co2[i] + operational_co2[i]
+            if manufacturing_co2[i] > 0:
+                plt.text(i, manufacturing_co2[i] / 2, f'{manufacturing_co2[i]:.0f}', ha='center', va='center', color='black', fontsize=9)
+            if operational_co2[i] > 0:
+                plt.text(i, manufacturing_co2[i] + operational_co2[i] / 2, f'{operational_co2[i]:.0f}', ha='center', va='center', color='black', fontsize=9)
+            if total_height > 0:
+                plt.text(i, total_height + 0.02 * plt.ylim()[1], f'{total_height:.0f}', ha='center', va='bottom', color='black', fontsize=9, fontweight='bold')
+
+
         stacked_bar_filename = os.path.join(output_dir, "annual_co2_impact_stacked_bar.png")
         plt.savefig(stacked_bar_filename)
         print(f"Saved plot: {stacked_bar_filename}")
@@ -398,9 +403,64 @@ if __name__ == "__main__":
     else:
         print("No yearly data available for stacked CO2 bar chart.")
 
+    # --- NEW: Annual CO2 Impact Bar Graph (Side-by-Side) ---
+    if all_yearly_dfs:
+        scenario_names = list(all_yearly_dfs.keys())
+        operational_co2 = []
+        manufacturing_co2 = []
+
+        for scenario in scenario_names:
+            yearly_df = all_yearly_dfs[scenario]
+            # Ensure we're getting the 'Total Yearly CO2 Emissions (gCO2eq)' which is the operational CO2
+            op_co2 = yearly_df.loc["Total Yearly CO2 Emissions (gCO2eq)", "Value"]
+            operational_co2.append(op_co2)
+
+            mfg_co2 = 0
+            if scenario in BATTERY_MANUFACTURING_CO2_G:
+                mfg_co2 = BATTERY_MANUFACTURING_CO2_G[scenario]
+            manufacturing_co2.append(mfg_co2)
+        
+        operational_co2 = np.array(operational_co2)
+        manufacturing_co2 = np.array(manufacturing_co2)
+
+        plt.figure(figsize=(14, 8))
+        bar_width = 0.35
+        indices = np.arange(len(scenario_names))
+
+        rects1 = plt.bar(indices - bar_width/2, manufacturing_co2, bar_width, label='Manufacturing CO2', color='lightcoral')
+        rects2 = plt.bar(indices + bar_width/2, operational_co2, bar_width, label='Operational CO2 (Annual)', color='skyblue')
+
+        plt.xlabel('Scenario')
+        plt.ylabel('CO2 Emissions (gCO2eq)')
+        plt.title('Annual CO2 Impact by Scenario (Manufacturing vs. Operational)')
+        plt.xticks(indices, scenario_names, rotation=45, ha='right')
+        plt.legend()
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        
+        # Annotate side-by-side bars
+        def autolabel(rects):
+            for rect in rects:
+                height = rect.get_height()
+                if height > 0:
+                    plt.text(rect.get_x() + rect.get_width() / 2, height + 0.01 * plt.ylim()[1],
+                             f'{height:.0f}', ha='center', va='bottom', fontsize=8)
+
+        autolabel(rects1)
+        autolabel(rects2)
+
+        side_by_side_bar_filename = os.path.join(output_dir, "annual_co2_impact_side_by_side_bar.png")
+        plt.savefig(side_by_side_bar_filename)
+        print(f"Saved plot: {side_by_side_bar_filename}")
+        plt.close()
+    else:
+        print("No yearly data available for side-by-side CO2 bar chart.")
+
+
     # --- CO2 Break-even Time Calculation ---
     print("\nCalculating CO2 Break-even Times...")
     break_even_data_for_plot = {} # Store break-even times for plotting
+    co2_breakeven_energy_values = {} # Store break-even energy values
 
     # Reference scenario: NoPV
     if "NoPV" in all_yearly_dfs:
@@ -416,13 +476,17 @@ if __name__ == "__main__":
             
             annual_operational_co2_savings_vs_nopv = yearly_co2_nopv - yearly_co2_scenario_operational
 
-            if annual_operational_co2_savings_vs_nopv > 0 and scenario_mfg_co2 > 0:
-                break_even_years = scenario_mfg_co2 / annual_operational_co2_savings_vs_nopv
+            if annual_operational_co2_savings_vs_nopv > 0 and (scenario_mfg_co2 > 0 or scenario_identifier == "PV_NoBattery"):
+                # For PV_NoBattery, mfg_co2 is 0, but we still want to calculate savings vs NoPV
+                break_even_years = scenario_mfg_co2 / annual_operational_co2_savings_vs_nopv if annual_operational_co2_savings_vs_nopv > 0 else np.nan
                 break_even_data_for_plot.setdefault(scenario_identifier, {})['vs_NoPV'] = break_even_years
+                # Calculate break-even energy in terms of grid import
+                equivalent_grid_energy_kwh = scenario_mfg_co2 / CO2_EMISSION_FACTORS["Grid_import"] if CO2_EMISSION_FACTORS["Grid_import"] > 0 else np.nan
+                co2_breakeven_energy_values.setdefault(scenario_identifier, {})['vs_NoPV (kWh Grid)'] = equivalent_grid_energy_kwh
             else:
-                # If no savings or no manufacturing CO2 for break-even, represent as NaN for plotting
-                if scenario_identifier in BATTERY_MANUFACTURING_CO2_G: # Only record if it's a battery scenario for "N/A"
+                if scenario_identifier in BATTERY_MANUFACTURING_CO2_G or scenario_identifier == "PV_NoBattery":
                     break_even_data_for_plot.setdefault(scenario_identifier, {})['vs_NoPV'] = np.nan 
+                    co2_breakeven_energy_values.setdefault(scenario_identifier, {})['vs_NoPV (kWh Grid)'] = np.nan
     else:
         print("'NoPV' scenario data not found, cannot calculate break-even times relative to it.")
 
@@ -431,6 +495,7 @@ if __name__ == "__main__":
         yearly_co2_pv_nobattery = all_yearly_dfs["PV_NoBattery"].loc["Total Yearly CO2 Emissions (gCO2eq)", "Value"]
         
         for scenario_identifier, yearly_df in all_yearly_dfs.items():
+            # Only consider scenarios with batteries for comparison against PV_NoBattery
             if scenario_identifier not in BATTERY_MANUFACTURING_CO2_G:
                 continue 
 
@@ -442,8 +507,12 @@ if __name__ == "__main__":
                 mfg_co2 = BATTERY_MANUFACTURING_CO2_G[scenario_identifier]
                 break_even_years = mfg_co2 / annual_operational_co2_savings_vs_pv_nobattery
                 break_even_data_for_plot.setdefault(scenario_identifier, {})['vs_PV_NoBattery'] = break_even_years
+                # Calculate break-even energy in terms of grid import
+                equivalent_grid_energy_kwh = mfg_co2 / CO2_EMISSION_FACTORS["Grid_import"] if CO2_EMISSION_FACTORS["Grid_import"] > 0 else np.nan
+                co2_breakeven_energy_values.setdefault(scenario_identifier, {})['vs_PV_NoBattery (kWh Grid)'] = equivalent_grid_energy_kwh
             else:
                 break_even_data_for_plot.setdefault(scenario_identifier, {})['vs_PV_NoBattery'] = np.nan
+                co2_breakeven_energy_values.setdefault(scenario_identifier, {})['vs_PV_NoBattery (kWh Grid)'] = np.nan
     else:
         print("'PV_NoBattery' scenario data not found, cannot calculate break-even times relative to it for battery scenarios.")
 
@@ -454,10 +523,29 @@ if __name__ == "__main__":
             vs_nopv_str = f"{comparisons.get('vs_NoPV', np.nan):.2f} years" if not np.isnan(comparisons.get('vs_NoPV', np.nan)) else "N/A (No savings or initial CO2)"
             vs_pv_nobat_str = f"{comparisons.get('vs_PV_NoBattery', np.nan):.2f} years" if not np.isnan(comparisons.get('vs_PV_NoBattery', np.nan)) else "N/A (No savings)"
             print(f"CO2 Break-even for '{scenario}':")
-            print(f"  vs 'NoPV': {vs_nopv_str}")
-            print(f"  vs 'PV_NoBattery': {vs_pv_nobat_str}")
+            print(f"   vs 'NoPV': {vs_nopv_str}")
+            print(f"   vs 'PV_NoBattery': {vs_pv_nobat_str}")
     else:
         print("No CO2 break-even time results to display.")
+
+    # Display CO2 Break-even Energy Values in terms of grid energy
+    if co2_breakeven_energy_values:
+        print("\n--- CO2 Break-even Energy Values (in kWh Grid Equivalent) ---")
+        df_breakeven_energy = pd.DataFrame.from_dict(co2_breakeven_energy_values, orient='index')
+        df_breakeven_energy.index.name = 'Scenario'
+        
+        # Add the manufacturing CO2 in gCO2eq for context
+        mfg_co2_for_table = {s: BATTERY_MANUFACTURING_CO2_G.get(s, 0) for s in df_breakeven_energy.index}
+        df_breakeven_energy.insert(0, "Battery Manufacturing CO2 (gCO2eq)", pd.Series(mfg_co2_for_table))
+        
+        print(df_breakeven_energy.to_string(float_format="%.2f"))
+        
+        # Save to CSV
+        breakeven_energy_csv_path = os.path.join(output_dir, "co2_breakeven_energy_grid_equivalent.csv")
+        df_breakeven_energy.to_csv(breakeven_energy_csv_path, float_format="%.2f")
+        print(f"Saved CO2 break-even energy values to: {breakeven_energy_csv_path}")
+    else:
+        print("No CO2 break-even energy values to display.")
 
 
     # --- New: CO2 Break-even Time Bar Graph ---
@@ -474,7 +562,7 @@ if __name__ == "__main__":
 
         if not df_break_even_filtered.empty:
             plt.figure(figsize=(12, 7))
-            df_break_even_filtered.plot(kind='bar', ax=plt.gca(), width=0.8)
+            ax = df_break_even_filtered.plot(kind='bar', ax=plt.gca(), width=0.8)
             plt.title('CO2 Break-even Time for Battery Scenarios')
             plt.xlabel('Battery Scenario')
             plt.ylabel('Break-even Time (Years)')
@@ -482,6 +570,18 @@ if __name__ == "__main__":
             plt.legend(title='Compared to')
             plt.grid(axis='y', linestyle='--', alpha=0.7)
             plt.tight_layout()
+
+            # Annotate bars
+            for container in ax.containers:
+                for j, rect in enumerate(container.patches):
+                    height = rect.get_height()
+                    if not np.isnan(height):
+                        ax.annotate(f'{height:.2f}',
+                                    xy=(rect.get_x() + rect.get_width() / 2, height),
+                                    xytext=(0, 3),  # 3 points vertical offset
+                                    textcoords="offset points",
+                                    ha='center', va='bottom', fontsize=8)
+
             break_even_plot_filename = os.path.join(output_dir, "co2_break_even_time_bar_graph.png")
             plt.savefig(break_even_plot_filename)
             print(f"Saved plot: {break_even_plot_filename}")
@@ -494,3 +594,70 @@ if __name__ == "__main__":
 
     print("\nCO2 Emissions Analysis Complete.")
     print("Check the 'output/carbon_footprint_analysis' folder for summary CSVs and plots.")
+
+    # Generate the distinct table for manufacturing and usage CO2
+    battery_co2_data = []
+    for scenario_identifier, config in scenarios_config.items():
+        manufacturing_co2 = BATTERY_MANUFACTURING_CO2_G.get(scenario_identifier, 0)
+        
+        # Get yearly operational CO2 from battery discharge AND total operational CO2
+        yearly_operational_co2_battery_discharge = 0
+        yearly_total_operational_co2 = 0 # This will store the "Total Yearly CO2 Emissions (gCO2eq)"
+
+        if scenario_identifier in all_yearly_dfs:
+            yearly_df = all_yearly_dfs[scenario_identifier]
+            if "Yearly CO2 from Battery Discharge (gCO2eq)" in yearly_df.index:
+                yearly_operational_co2_battery_discharge = yearly_df.loc["Yearly CO2 from Battery Discharge (gCO2eq)", "Value"]
+            if "Total Yearly CO2 Emissions (gCO2eq)" in yearly_df.index:
+                yearly_total_operational_co2 = yearly_df.loc["Total Yearly CO2 Emissions (gCO2eq)", "Value"]
+        
+        battery_co2_data.append({
+            "Scenario": scenario_identifier,
+            "CO2 from Battery Manufacturing (gCO2eq)": manufacturing_co2,
+            "CO2 from Battery Discharge (gCO2eq)": yearly_operational_co2_battery_discharge, # CO2 directly from battery usage
+            "Total Yearly Operational CO2 (gCO2eq)": yearly_total_operational_co2 # Total operational CO2 for the scenario
+        })
+
+    df_battery_co2 = pd.DataFrame(battery_co2_data)
+
+    # Save the battery CO2 table
+    battery_co2_table_path = os.path.join(output_dir, "battery_co2_manufacturing_vs_usage.csv")
+    df_battery_co2.to_csv(battery_co2_table_path, index=False, float_format="%.2f")
+    print(f"\nSaved battery CO2 manufacturing vs. usage summary to: {battery_co2_table_path}")
+
+    # Create a new plot of total operational CO2 output alone (previously named "operational CO2 output")
+    if all_yearly_dfs:
+        operational_co2_data = []
+        for scenario_identifier, yearly_df in all_yearly_dfs.items():
+            # Get the TOTAL operational CO2, which includes PV, Grid, and Battery Discharge
+            op_co2 = yearly_df.loc["Total Yearly CO2 Emissions (gCO2eq)", "Value"]
+            operational_co2_data.append({"Scenario": scenario_identifier, "Total Yearly Operational CO2 (gCO2eq)": op_co2})
+        
+        df_operational_co2 = pd.DataFrame(operational_co2_data).set_index("Scenario")
+        
+        plt.figure(figsize=(12, 7))
+        ax = df_operational_co2.plot(kind='bar', ax=plt.gca(), width=0.7, color='lightgreen')
+        plt.title('Total Yearly Operational CO2 Emissions by Scenario')
+        plt.xlabel('Scenario')
+        plt.ylabel('Total Yearly Operational CO2 (gCO2eq)')
+        plt.xticks(rotation=45, ha='right')
+        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.tight_layout()
+        
+        # Annotate bars
+        for container in ax.containers:
+            for rect in container.patches:
+                height = rect.get_height()
+                if height > 0:
+                    ax.annotate(f'{height:.0f}',
+                                xy=(rect.get_x() + rect.get_width() / 2, height),
+                                xytext=(0, 3),  # 3 points vertical offset
+                                textcoords="offset points",
+                                ha='center', va='bottom', fontsize=9)
+
+        operational_co2_plot_filename = os.path.join(output_dir, "total_yearly_operational_co2_bar_graph.png")
+        plt.savefig(operational_co2_plot_filename)
+        print(f"Saved plot: {operational_co2_plot_filename}")
+        plt.close()
+    else:
+        print("No yearly data available to plot total yearly operational CO2.")

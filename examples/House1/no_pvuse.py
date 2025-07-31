@@ -86,6 +86,12 @@ for month_info in months_to_simulate:
     # Set tee to False to suppress detailed solver output for each month
     solved_model = solph_representation.solve(solve_kwargs={"tee": False}) 
 
+    plot = solph_representation.graph(
+        detail=True, flow_results=flows, flow_color=None
+    )
+    plot.render(outfile="House1_nopv_results.png")
+    solph_representation.build_solph_model()
+
     myresults = solph.processing.results(solved_model)
     flows = get_flows(myresults)
 
