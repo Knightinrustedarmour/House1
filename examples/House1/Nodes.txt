@@ -1,0 +1,80 @@
+1) ('House1', 'ElectricityCarrier', 'distribution')
+
+('House1', 'demand', 'input')
+
+
+
+2)('House1', 'ElectricityCarrier', 'distribution')
+
+('House1', 'storage1', 'Battery_Storage')
+
+
+
+3) ('House1', 'ElectricityCarrier', 'feed_in')
+
+('House1', 'ElectricityGridConnection', 'grid_export')
+
+
+
+4) ('House1', 'ElectricityGridConnection', 'grid_export')
+
+('House1', 'ElectricityGridConnection', 'sink_export')
+
+
+
+5) ('House1', 'ElectricityGridConnection', 'grid_import')
+
+('House1', 'ElectricityCarrier', 'distribution')
+
+ 
+
+6) ('House1', 'ElectricityGridConnection', 'source_import')
+
+('House1', 'ElectricityGridConnection', 'grid_import')
+
+
+
+7. ('House1', 'PV', 'connection')
+
+('House1', 'ElectricityCarrier', 'distribution')
+
+
+
+8. ('House1', 'PV', 'connection')
+
+('House1', 'ElectricityCarrier', 'feed_in')
+
+
+
+9. ('House1', 'PV', 'source')
+
+('House1', 'PV', 'connection')
+
+ 
+
+10. ('House1', 'demand', 'input')
+
+('House1', 'demand', 'sink')
+
+
+
+11. ('House1', 'storage1', 'Battery_Storage')
+
+('House1', 'ElectricityCarrier', 'distribution') 
+
+//
+no pv//
+
+1. ('House1', 'ElectricityCarrier', 'distribution')
+('House1', 'demand', 'input')
+
+2. ('House1', 'ElectricityCarrier', 'feed_in')
+('House1', 'ElectricityGridConnection', 'grid_export')
+3. ('House1', 'ElectricityGridConnection', 'grid_export')
+('House1', 'ElectricityGridConnection', 'sink_export')
+4.('House1', 'ElectricityGridConnection', 'grid_import')
+('House1', 'ElectricityCarrier', 'distribution')
+5.('House1', 'ElectricityGridConnection', 'source_import')
+('House1', 'ElectricityGridConnection', 'grid_import')
+6.('House1', 'demand', 'input')
+('House1', 'demand', 'sink')

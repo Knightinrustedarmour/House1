@@ -22,10 +22,8 @@ BATTERY_MANUFACTURING_CO2_G = {
 
 
 FLOW_COLUMN_PATHS = {
-    "PV_production": (
-        "SolphLabel(location='House1', mtress_component='PV', solph_node='connection')",
-        "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')"
-    ),
+    "PV_production": ("SolphLabel(location='House1', mtress_component='PV', solph_node='source')",
+                      "SolphLabel(location='House1', mtress_component='PV', solph_node='connection')"),
     "Battery_discharge": (
         "SolphLabel(location='House1', mtress_component='storage1', solph_node='Battery_Storage')",
         "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')"
@@ -84,16 +82,16 @@ def calculate_monthly_co2_emissions(scenario_identifier, scenario_config):
             battery_discharge = get_column_data(results, "Battery_discharge", scenario_config)
             demand = get_column_data(results, "Demand", scenario_config)
 
-            total_pv_kwh = pv_production.sum() / 1000
-            total_grid_import_kwh = grid_import.sum() / 1000
-            total_battery_discharge_kwh = battery_discharge.sum() / 1000
-            total_demand_kwh = demand.sum() / 1000
+            total_pv_kwh = pv_production.sum() / 60000
+            total_grid_import_kwh = grid_import.sum() / 60000
+            total_battery_discharge_kwh = battery_discharge.sum() / 60000
+            total_demand_kwh = demand.sum() / 60000
 
             co2_pv = total_pv_kwh * CO2_EMISSION_FACTORS["PV_production"]
             co2_grid_import = total_grid_import_kwh * CO2_EMISSION_FACTORS["Grid_import"]
             co2_battery_discharge = total_battery_discharge_kwh * CO2_EMISSION_FACTORS["Battery_discharge"]
-
-            total_co2_emissions_g = co2_pv + co2_grid_import + co2_battery_discharge
+            mfg_co2 = BATTERY_MANUFACTURING_CO2_G.get(scenario, 0)
+            total_co2_emissions_g = co2_pv + co2_grid_import + co2_battery_discharge + mfg_co2
 
             monthly_data.append({
                 "Scenario": scenario_identifier,

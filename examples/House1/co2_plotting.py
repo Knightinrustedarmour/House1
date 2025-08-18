@@ -10,29 +10,36 @@ output_dir = os.path.join(script_dir, "output", "carbon_footprint_analysis_plots
 os.makedirs(output_dir, exist_ok=True)
 
 # --- Read CSVs ---
-manufacturing_df = pd.read_csv(os.path.join(input_dir, "battery_co2_manufacturing_vs_usage.csv"))
+# Correctly read the annual total CO2 and set the index
 total_co2_df = pd.read_csv(os.path.join(input_dir, "annual_total_operational_co2_all_scenarios.csv"), index_col=0)
+manufacturing_df = pd.read_csv(os.path.join(input_dir, "battery_co2_manufacturing_vs_usage.csv"))
 monthly_pv_df = pd.read_csv(os.path.join(input_dir, "monthly_co2_pv_all_scenarios_wide.csv"), index_col=0)
 monthly_grid_df = pd.read_csv(os.path.join(input_dir, "monthly_co2_grid_all_scenarios_wide.csv"), index_col=0)
 
 # --- Breakeven Calculations ---
 df = manufacturing_df[manufacturing_df["CO2 from Battery Manufacturing (gCO2eq)"] > 0].copy()
-df["Operational Breakeven Time (hours)"] = ( # Changed column name to hours
-    df["CO2 from Battery Manufacturing (gCO2eq)"] / df["CO2 from Battery Discharge (gCO2eq)"] * 365 * 20 * 24 # Multiplied by 20 and 24 (for hours)
+df["Operational Breakeven Time (years)"] = (
+    df["CO2 from Battery Manufacturing (gCO2eq)"] / df["CO2 from Battery Discharge (gCO2eq)"] * 20
 )
-df["Energy Breakeven (kWh)"] = df["CO2 from Battery Manufacturing (gCO2eq)"] / 53  # gCO2eq/kWh for discharge
+df["Operational Breakeven Time (hours)"] = df["Operational Breakeven Time (years)"] * 8766
+df["Energy Breakeven (kWh)"] = df["CO2 from Battery Manufacturing (gCO2eq)"] / 53 * 20
 
-# --- Annotate function ---
+# --- Plotting Helpers ---
 def annotate_bars(ax, fmt="{:.0f}", offset_factor=0.02, rotation=90, fontsize=9):
     """Annotates bars with their height values."""
     for bar in ax.patches:
         height = bar.get_height()
         if height > 0:
-            # Calculate offset dynamically based on plot height
             offset = ax.get_ylim()[1] * offset_factor
             ax.annotate(fmt.format(height),
                         (bar.get_x() + bar.get_width() / 2, height + offset),
                         ha='center', va='bottom', fontsize=fontsize, rotation=rotation)
+
+def order_dataframe_for_plotting(df):
+    """Orders a DataFrame based on the user's requested scenario order."""
+    order = ["NoPV", "PV_NoBattery", "5kWh", "8kWh", "12kWh", "15kWh", "20kWh", "26kWh", "50kWh"]
+    # Reindex the DataFrame to ensure the correct order, filling missing values if necessary
+    return df.reindex(order)
 
 # --- Set a consistent plot style for better aesthetics ---
 sns.set_theme(style="whitegrid", palette="viridis")
@@ -46,57 +53,69 @@ plt.rcParams.update({
     'figure.titlesize': 18
 })
 
-# --- Bar Plot: Battery Manufacturing vs Operational (in kgCO2eq/kWh) ---
-fig, ax = plt.subplots(figsize=(16, 8)) # Increased figure width
-x = df["Scenario"]
-x_pos = range(len(x))
-width = 0.35
 
-ax.bar([i - width / 2 for i in x_pos],
-       df["CO2 from Battery Manufacturing (gCO2eq)"] / 1000,
-       width, label='Manufacturing CO₂') # Improved label
+total_co2_operational = total_co2_df.iloc[0] # The single row from your CSV
+total_co2_operational = order_dataframe_for_plotting(total_co2_operational)
+baseline_emissions = total_co2_operational.loc["NoPV"]
 
-ax.bar([i + width / 2 for i in x_pos],
-       df["CO2 from Battery Discharge (gCO2eq)"] / 1000,
-       width, label='Operational CO₂') # Improved label
+# Calculate the offset by subtracting each scenario's emissions from the baseline
+carbon_offset = (baseline_emissions - total_co2_operational) / 1000 # to kgCO2eq
+# --- Consolidated Plots with Ordering ---
 
-ax.set_ylabel("CO₂ Emissions (kgCO₂eq/kWh)") # More descriptive label
-ax.set_title("Battery Manufacturing vs Operational CO₂ Emissions per Scenario") # More descriptive title
-ax.set_xticks(x_pos)
-ax.set_xticklabels(x, rotation=45)
-ax.legend(loc='upper left', bbox_to_anchor=(1, 1)) # Move legend outside to prevent overlap
-annotate_bars(ax, fmt="{:.0f}", offset_factor=0.01, rotation=0, fontsize=10) # Adjust annotation for clarity
-plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust layout to make space for legend
-plt.savefig(os.path.join(output_dir, "battery_manufacturing_vs_operational_bar.png"))
-plt.close(fig) # Close figure to free memory
-
-# --- Bar Plot: Total CO₂ Output ---
-fig, ax = plt.subplots(figsize=(16, 8)) # Increased figure width
-total = total_co2_df.sum(axis=0) / 1000  # Convert to kgCO2eq
-ax.bar(total.index, total.values, color=sns.color_palette("viridis", len(total))) # Add color palette
-ax.set_ylabel("Total CO₂ Emissions (kgCO₂eq)")
-ax.set_title("Total Annual CO₂ Emissions Across All Scenarios")
-ax.set_xticklabels(total.index, rotation=45)
+# --- Bar Plot: Total CO2 Output (with ordering) ---
+fig, ax = plt.subplots(figsize=(16, 8))
+total_co2_operational = total_co2_df.iloc[0] / 1000  # Get the single row and convert to kgCO2eq
+total_co2_operational = order_dataframe_for_plotting(total_co2_operational)
+ax.bar(total_co2_operational.index, total_co2_operational.values, color=sns.color_palette("viridis", len(total_co2_operational)))
+ax.set_ylabel("Total Operational CO2 (kgCO2eq)")
+ax.set_title("Total Annual Operational CO2 Across All Scenarios")
+ax.set_xticklabels(total_co2_operational.index, rotation=45, ha='right')
 annotate_bars(ax, offset_factor=0.01, rotation=0, fontsize=10)
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, "total_yearly_co2_bar.png"))
 plt.close(fig)
 
-# --- Bar Plot: Operational Breakeven Time (in hours) ---
-fig, ax = plt.subplots(figsize=(14, 7)) # Increased figure width
-bar = ax.bar(df["Scenario"], df["Operational Breakeven Time (hours)"], color=sns.color_palette("magma", len(df["Scenario"]))) # Changed column name
-ax.set_title("Operational CO₂ Breakeven Time (Hours)") # Changed title
-ax.set_ylabel("Breakeven Time (Hours)") # Changed label
-ax.tick_params(axis='x', rotation=45)
+
+
+# --- Bar Plot: Battery Manufacturing vs Operational (in kgCO2eq/kWh) ---
+fig, ax = plt.subplots(figsize=(16, 8))
+df = order_dataframe_for_plotting(df.set_index("Scenario")).reset_index()
+x = df["Scenario"]
+x_pos = range(len(x))
+width = 0.35
+ax.bar([i - width / 2 for i in x_pos],
+       df["CO2 from Battery Manufacturing (gCO2eq)"] / 1000,
+       width, label='Manufacturing CO2')
+ax.bar([i + width / 2 for i in x_pos],
+       df["CO2 from Battery Discharge (gCO2eq)"] / 1000,
+       width, label='Operational CO2')
+ax.set_ylabel("CO2 Emissions (kgCO2eq)")
+ax.set_title("Battery Manufacturing vs Operational CO2 Emissions per Scenario")
+ax.set_xticks(x_pos)
+ax.set_xticklabels(x, rotation=45, ha='right')
+ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
 annotate_bars(ax, fmt="{:.0f}", offset_factor=0.01, rotation=0, fontsize=10)
+plt.tight_layout(rect=[0, 0, 0.85, 1])
+plt.savefig(os.path.join(output_dir, "battery_manufacturing_vs_operational_bar.png"))
+plt.close(fig)
+
+# --- Bar Plot: Operational Breakeven Time (in years) ---
+fig, ax = plt.subplots(figsize=(14, 7))
+df_ordered = order_dataframe_for_plotting(df.set_index("Scenario"))
+bar = ax.bar(df_ordered.index, df_ordered["Operational Breakeven Time (years)"], color=sns.color_palette("magma", len(df_ordered)))
+ax.set_title("Operational CO2 Breakeven Time (Years)")
+ax.set_ylabel("Breakeven Time (Years)")
+ax.tick_params(axis='x', rotation=45)
+annotate_bars(ax, fmt="{:.1f}", offset_factor=0.01, rotation=0, fontsize=10)
 plt.tight_layout()
-plt.savefig(os.path.join(output_dir, "operational_breakeven_time_bar.png"))
+plt.savefig(os.path.join(output_dir, "operational_breakeven_time_bar_years.png"))
 plt.close(fig)
 
 # --- Bar Plot: Energy Breakeven ---
-fig, ax = plt.subplots(figsize=(14, 7)) # Increased figure width
-bar = ax.bar(df["Scenario"], df["Energy Breakeven (kWh)"], color=sns.color_palette("plasma", len(df["Scenario"])))
-ax.set_title("Energy Breakeven Point vs Battery CO₂ Emissions")
+fig, ax = plt.subplots(figsize=(14, 7))
+df_ordered = order_dataframe_for_plotting(df.set_index("Scenario"))
+bar = ax.bar(df_ordered.index, df_ordered["Energy Breakeven (kWh)"], color=sns.color_palette("plasma", len(df_ordered)))
+ax.set_title("Energy Breakeven Point vs Battery CO2 Emissions")
 ax.set_ylabel("Energy (kWh)")
 ax.tick_params(axis='x', rotation=45)
 annotate_bars(ax, fmt="{:.0f}", offset_factor=0.01, rotation=0, fontsize=10)
@@ -104,54 +123,82 @@ plt.tight_layout()
 plt.savefig(os.path.join(output_dir, "energy_breakeven_bar.png"))
 plt.close(fig)
 
-# --- Line Plot: Monthly PV CO₂ ---
-fig, ax = plt.subplots(figsize=(16, 8)) # Increased figure width
-for col in monthly_pv_df.columns:
-    ax.plot(monthly_pv_df.index, monthly_pv_df[col], label=col, linewidth=2) # Changed to plot
-ax.set_title("Monthly CO₂ Emissions from PV Production")
-ax.set_ylabel("CO₂ Emissions (gCO₂eq)")
+# --- Line Plot: Monthly PV CO2 ---
+fig, ax = plt.subplots(figsize=(16, 8))
+monthly_pv_df_ordered = order_dataframe_for_plotting(monthly_pv_df.T).T
+for col in monthly_pv_df_ordered.columns:
+    ax.plot(monthly_pv_df_ordered.index, monthly_pv_df_ordered[col], label=col, linewidth=2)
+ax.set_title("Monthly CO2 Emissions from PV Production")
+ax.set_ylabel("CO2 Emissions (gCO2eq)")
 ax.set_xlabel("Month")
-ax.set_xticks(monthly_pv_df.index) # Ensure all months are shown
-ax.set_xticklabels(monthly_pv_df.index.map(str), rotation=45)
-ax.legend(ncol=2, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.) # Adjust legend position
-plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust layout to make space for legend
-plt.savefig(os.path.join(output_dir, "monthly_pv_co2_line_plot.png")) # Changed filename
+ax.set_xticks(monthly_pv_df_ordered.index)
+ax.set_xticklabels(monthly_pv_df_ordered.index.map(str), rotation=45)
+ax.legend(ncol=2, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+plt.tight_layout(rect=[0, 0, 0.85, 1])
+plt.savefig(os.path.join(output_dir, "monthly_pv_co2_line_plot.png"))
 plt.close(fig)
 
-# --- Line Plot: Monthly Grid CO₂ ---
-fig, ax = plt.subplots(figsize=(16, 8)) # Increased figure width
-for col in monthly_grid_df.columns:
-    ax.plot(monthly_grid_df.index, monthly_grid_df[col], label=col, linewidth=2) # Changed to plot
-ax.set_title("Monthly CO₂ Emissions from Grid Import")
-ax.set_ylabel("CO₂ Emissions (gCO₂eq)")
+# --- Line Plot: Monthly Grid CO2 ---
+fig, ax = plt.subplots(figsize=(16, 8))
+monthly_grid_df_ordered = order_dataframe_for_plotting(monthly_grid_df.T).T
+for col in monthly_grid_df_ordered.columns:
+    ax.plot(monthly_grid_df_ordered.index, monthly_grid_df_ordered[col], label=col, linewidth=2)
+ax.set_title("Monthly CO2 Emissions from Grid Import")
+ax.set_ylabel("CO2 Emissions (gCO2eq)")
 ax.set_xlabel("Month")
-ax.set_xticks(monthly_grid_df.index) # Ensure all months are shown
-ax.set_xticklabels(monthly_grid_df.index.map(str), rotation=45)
-ax.legend(ncol=2, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.) # Adjust legend position
-plt.tight_layout(rect=[0, 0, 0.85, 1]) # Adjust layout to make space for legend
-plt.savefig(os.path.join(output_dir, "monthly_grid_co2_line_plot.png")) # Changed filename
+ax.set_xticks(monthly_grid_df_ordered.index)
+ax.set_xticklabels(monthly_grid_df_ordered.index.map(str), rotation=45)
+ax.legend(ncol=2, bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
+plt.tight_layout(rect=[0, 0, 0.85, 1])
+plt.savefig(os.path.join(output_dir, "monthly_grid_co2_line_plot.png"))
 plt.close(fig)
 
-# --- Annual CO2 Impact: PV ---
-fig, ax = plt.subplots(figsize=(14, 7)) # Increased figure width
-annual_pv_co2 = monthly_pv_df.sum() / 1000  # to kgCO2eq
+# --- Annual CO2 Impact: PV (with ordering) ---
+fig, ax = plt.subplots(figsize=(14, 7))
+annual_pv_co2 = monthly_pv_df.sum() / 1000
+annual_pv_co2 = order_dataframe_for_plotting(annual_pv_co2)
 ax.bar(annual_pv_co2.index, annual_pv_co2.values, color=sns.color_palette("Greens_d", len(annual_pv_co2)))
-ax.set_title("Annual CO₂ Impact from PV Production")
-ax.set_ylabel("Annual CO₂ Emissions (kgCO₂eq)")
-ax.set_xticklabels(annual_pv_co2.index, rotation=45)
+ax.set_title("Annual CO2 Impact from PV Production")
+ax.set_ylabel("Annual CO2 Emissions (kgCO2eq)")
+ax.set_xticklabels(annual_pv_co2.index, rotation=45, ha='right')
 annotate_bars(ax, offset_factor=0.01, rotation=0, fontsize=10)
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, "annual_co2_pv_bar.png"))
 plt.close(fig)
 
-# --- Annual CO2 Impact: Grid ---
-fig, ax = plt.subplots(figsize=(14, 7)) # Increased figure width
-annual_grid_co2 = monthly_grid_df.sum() / 1000  # to kgCO2eq
+# --- Annual CO2 Impact: Grid (with ordering) ---
+fig, ax = plt.subplots(figsize=(14, 7))
+annual_grid_co2 = monthly_grid_df.sum() / 1000
+annual_grid_co2 = order_dataframe_for_plotting(annual_grid_co2)
 ax.bar(annual_grid_co2.index, annual_grid_co2.values, color=sns.color_palette("Blues_d", len(annual_grid_co2)))
-ax.set_title("Annual CO₂ Impact from Grid Import")
-ax.set_ylabel("Annual CO₂ Emissions (kgCO₂eq)")
-ax.set_xticklabels(annual_grid_co2.index, rotation=45)
+ax.set_title("Annual CO2 Impact from Grid Import")
+ax.set_ylabel("Annual CO2 Emissions (kgCO2eq)")
+ax.set_xticklabels(annual_grid_co2.index, rotation=45, ha='right')
 annotate_bars(ax, offset_factor=0.01, rotation=0, fontsize=10)
 plt.tight_layout()
 plt.savefig(os.path.join(output_dir, "annual_co2_grid_bar.png"))
+plt.close(fig)
+
+fig, ax = plt.subplots(figsize=(16, 8))
+scenarios_to_color = [s for s in carbon_offset.index if s != "NoPV"]
+
+# Create a color palette with the correct number of colors
+num_colors = len(scenarios_to_color)
+palette = sns.color_palette("viridis", num_colors)
+
+# Create a dictionary to map each scenario to its color
+color_map = {scenario: palette[i] for i, scenario in enumerate(scenarios_to_color)}
+color_map["NoPV"] = 'lightgray' # Set a specific color for the baseline
+
+# Get the list of colors for the bar plot, ensuring the order is correct
+bar_colors = [color_map[s] for s in carbon_offset.index]
+
+ax.bar(carbon_offset.index, carbon_offset.values, color=bar_colors)
+ax.set_ylabel("Carbon Offset (kgCO2eq)")
+ax.set_title("Annual Carbon Offset Compared to 'NoPV' Baseline")
+ax.set_xticklabels(carbon_offset.index, rotation=45, ha='right')
+ax.axhline(0, color='black', linewidth=0.8, linestyle='--') # Add a horizontal line at y=0
+annotate_bars(ax, fmt="{:,.0f}", offset_factor=0.01, rotation=0, fontsize=10)
+plt.tight_layout()
+plt.savefig(os.path.join(output_dir, "annual_carbon_offset_bar.png"))
 plt.close(fig)
