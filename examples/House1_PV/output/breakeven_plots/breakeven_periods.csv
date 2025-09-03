@@ -1,0 +1,9 @@
+Scenario,Battery_Size_kWh,Calculated_Annual_Energy_Cost_EUR,Installation_Cost_EUR,Annual_Grid_Import_kWh,Annual_Grid_Export_kWh,Returns_Per_Year_EUR,Breakeven_With_Setup_Years
+PV_NoBattery,No Battery,0.00,0.00,0.00,0.00,0.00,nan
+5kWh,5 kWh,0.00,6400.00,0.00,0.00,0.00,nan
+8kWh,8 kWh,0.00,9600.00,0.00,0.00,0.00,nan
+12kWh,12 kWh,0.00,12800.00,0.00,0.00,0.00,nan
+15kWh,15 kWh,0.00,16000.00,0.00,0.00,0.00,nan
+20kWh,20 kWh,0.00,22400.00,0.00,0.00,0.00,nan
+26kWh,26 kWh,0.00,28800.00,0.00,0.00,0.00,nan
+50kWh,50 kWh,0.00,51200.00,0.00,0.00,0.00,nan

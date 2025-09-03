@@ -1,2 +1,0 @@
-examples/OLT_WIN.csv filter=lfs diff=lfs merge=lfs -text
-examples/basic_examples/alhambra/house_only.lp filter=lfs diff=lfs merge=lfs -text
