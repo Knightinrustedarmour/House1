@@ -1,0 +1,37 @@
+Tomas
+9:59 AM
+https://www.solare-stadt.de/oldenburg/spk
+
+Tomas
+10:00 AM
+Battery Prices:
+
+https://www.energiespeicher-online.shop/Energiespeicher/Speicher-Typ/3-phasig/byd-b-box-hvm-11.0​
+3.8 k€ for 11 kWh
+
+https://solarhandel24.de/products/sungrow-sbr160-batteriespeicher
+4.8 k€ for 16 kWh
+
+https://www.energiespeicher-online.shop/Energiespeicher/Speicher-Typ/3-phasig/fenecon-home-15-14-kwh
+
+8.3 k€ for 15kW
+
+//
+
+
+Sensitivity / Use-Cases:
+    * Prices: increasing / decreasing
+    - battery investment
+* More PV: 
+- increase PV by 3.6 KW on second roof
+* 
+
+    
+Indicators co compare:
+    - Cost break even
+    - Cost of supply per year
+    - CO2
+    (- Self consumption
+    - Grid import
+    - Grid export)
+Battery Prices:

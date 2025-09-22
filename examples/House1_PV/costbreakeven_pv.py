@@ -6,10 +6,11 @@ import seaborn as sns
 
 # --- Configuration ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # The input CSV for installation costs and scenario names
-input_csv_path = os.path.join(script_dir, "output", "scenario_net_costs.csv")
-# Directory where individual yearly energy summary CSVs are located
-energy_summary_dir = os.path.join(script_dir, "output")
+input_costs_csv_path = os.path.join(script_dir, "output", "scenario_net_costs.csv")
+# The input CSV with all annual energy flows
+input_energy_flows_path = os.path.join(script_dir, "output", "energy_flow_master_table", "annual_energy_flows_master_table.csv")
 
 output_breakeven_csv_path = os.path.join(script_dir, "output", "breakeven_periods.csv")
 plots_output_directory = os.path.join(script_dir, "output", "breakeven_plots")
@@ -17,45 +18,19 @@ os.makedirs(plots_output_directory, exist_ok=True)
 
 # --- Financial Parameters ---
 GRID_IMPORT_PRICE = 0.35  # EUR/kWh
-EXPORT_REVENUE_PRICE = 0.08 # EUR/kWh
+EXPORT_REVENUE_PRICE = 0.08  # EUR/kWh
 
 print("--- Starting Breakeven Period Calculation ---")
 
-if not os.path.exists(input_csv_path):
-    print(f"Error: Input CSV file not found at {input_csv_path}.")
+if not os.path.exists(input_costs_csv_path):
+    print(f"Error: Installation costs CSV file not found at {input_costs_csv_path}.")
     print("Ensure 'annual_energy_cost_compiler' run and CSV contains 'Installation Cost' row.")
     exit()
 
-# Helper function to get annual import/export from individual CSV files
-def get_annual_energy_data(scenario_name, energy_files_directory):
-    if scenario_name == 'NoBattery':
-        filename = f"yearly_energy_summary_2023_nobattery_kWh.csv"
-    else:
-        # Convert '10kWh' to '10k' for filename matching
-        battery_size_for_filename = scenario_name.replace('kWh', 'k')
-        filename = f"yearly_energy_summary_2023_battery_{battery_size_for_filename}_kWh.csv"
-
-    filepath = os.path.join(energy_files_directory, filename)
-
-    if not os.path.exists(filepath):
-        print(f"Warning: Energy summary file not found for {scenario_name} at {filepath}. Using 0 for import/export.")
-        return 0.0, 0.0 # Return zeros if file not found
-
-    try:
-        # Read without header, assuming first column is descriptor, second is value
-        energy_df = pd.read_csv(filepath, header=None)
-        
-        grid_import_row = energy_df[energy_df.iloc[:, 0] == 'Total Period Grid Import (kWh)']
-        grid_export_row = energy_df[energy_df.iloc[:, 0] == 'Total Period Grid Export (kWh)']
-
-        grid_import = pd.to_numeric(grid_import_row.iloc[0, 1], errors='coerce') if not grid_import_row.empty else 0.0
-        grid_export = pd.to_numeric(grid_export_row.iloc[0, 1], errors='coerce') if not grid_export_row.empty else 0.0
-        
-        return grid_import, grid_export
-    except Exception as e:
-        print(f"Error reading energy data from {filepath} for {scenario_name}: {e}. Using 0 for import/export.")
-        return 0.0, 0.0
-
+if not os.path.exists(input_energy_flows_path):
+    print(f"Error: Annual energy flows master table not found at {input_energy_flows_path}.")
+    print("Ensure the previous script successfully created this file.")
+    exit()
 
 try:
     # --- Debugging: Check write permissions and confirm plot output directory ---
@@ -65,141 +40,88 @@ try:
         test_file_path = os.path.join(plots_output_directory, "test_write.txt")
         with open(test_file_path, "w") as f:
             f.write("Test write succeeded.")
-        os.remove(test_file_path) # Clean up dummy file
+        os.remove(test_file_path)  # Clean up dummy file
         print(f"Successfully wrote to and removed a test file in {os.path.abspath(plots_output_directory)}. Write permissions are OK.")
     except Exception as e:
         print(f"CRITICAL ERROR: Failed to write to {os.path.abspath(plots_output_directory)}. Please check directory permissions. Error: {e}")
         exit()
     # --- End Debugging Block ---
 
-    # Load data
-    compiled_df = pd.read_csv(input_csv_path)
-
-    # Convert numeric columns
-    for col in compiled_df.columns:
-        if col != 'Month':
-            compiled_df[col] = pd.to_numeric(compiled_df[col], errors='coerce')
-
-    # Extract installation costs row with robust checks
-    def get_row_or_exit(df, month_name):
-        filtered_row = df[df['Month'] == month_name]
-        if filtered_row.empty:
-            print(f"Error: Required row '{month_name}' not found in '{input_csv_path}'.")
-            print("Please ensure your input CSV contains this row exactly as specified.")
-            exit()
-        return filtered_row.iloc[0]
-
-    installation_costs_row = get_row_or_exit(compiled_df, 'Installation Cost')
+    # --- Load and Prepare Data ---
+    # Load the installation costs
+    compiled_costs_df = pd.read_csv(input_costs_csv_path)
     
-    # --- Determine unique scenarios from compiled_df columns ---
-    # These are the columns that represent different battery scenarios
-    # Exclude 'Month', 'NoBattery', and potentially other summary rows if they exist
-    scenarios_to_process = [col for col in compiled_df.columns if col not in ['Month', 'NoBattery', 'Total', 'Installation Cost']]
+    # Load the annual energy flows master table
+    annual_flows_df = pd.read_csv(input_energy_flows_path)
+    annual_flows_df.set_index('Scenario', inplace=True)
+
+    # Extract the installation costs, assuming 'Month' column exists
+    installation_costs_row = compiled_costs_df[compiled_costs_df['Month'] == 'Installation Cost']
     
-    # Sort scenarios (e.g., 5kWh, 10kWh, 15kWh...) for consistent order
-    def get_sort_key_for_scenarios(scenario_name):
-        try:
-            return int(scenario_name.replace('kWh', ''))
-        except ValueError:
-            return float('inf') # Puts non-numeric scenarios (if any) at the end
+    if installation_costs_row.empty:
+        print("Error: 'Installation Cost' row not found in the input CSV.")
+        exit()
 
-    scenarios_to_process.sort(key=get_sort_key_for_scenarios)
-
-    # --- Calculate the baseline energy cost (NoBattery) ---
-    no_battery_annual_import_kwh, no_battery_annual_export_kwh = get_annual_energy_data('NoBattery', energy_summary_dir)
+    # Convert row to a dictionary for easy lookup
+    installation_costs = installation_costs_row.iloc[0].drop('Month').to_dict()
     
-    # Cost = (Import * Price) - (Export * Revenue)
-    no_battery_annual_energy_cost = (no_battery_annual_import_kwh * GRID_IMPORT_PRICE) - \
-                                    (no_battery_annual_export_kwh * EXPORT_REVENUE_PRICE)
-
-    print(f"\nBaseline Annual Energy Cost (No Battery): {no_battery_annual_energy_cost:.2f} EUR")
-    print(f"(Based on {no_battery_annual_import_kwh:.2f} kWh import and {no_battery_annual_export_kwh:.2f} kWh export)")
+    # Clean up installation cost dictionary keys and convert values to numeric
+    installation_costs = {k: pd.to_numeric(v, errors='coerce') for k, v in installation_costs.items()}
     
-    breakeven_results = []
-    cumulative_savings_data = []
-
-    # Iterate through battery scenarios
-    for scenario_name in scenarios_to_process:
-        # Get scenario data (default 0.0 if missing)
-        battery_installation_cost = installation_costs_row.get(scenario_name, 0.0)
-        scenario_annual_import_kwh, scenario_annual_export_kwh = get_annual_energy_data(scenario_name, energy_summary_dir)
-
-        # Calculate annual energy cost for scenario
-        scenario_annual_energy_cost = (scenario_annual_import_kwh * GRID_IMPORT_PRICE) - \
-                                      (scenario_annual_export_kwh * EXPORT_REVENUE_PRICE)
-
-        print(f"\n--- Scenario: {scenario_name} ---")
-        print(f"  Installation Cost: {battery_installation_cost:.2f} EUR")
-        print(f"  Annual Grid Import: {scenario_annual_import_kwh:.2f} kWh")
-        print(f"  Annual Grid Export: {scenario_annual_export_kwh:.2f} kWh")
-        print(f"  Calculated Annual Energy Cost: {scenario_annual_energy_cost:.2f} EUR")
-
-        # Calculate annual savings vs. baseline
-        annual_savings = no_battery_annual_energy_cost - scenario_annual_energy_cost
-        
-        breakeven_period_with_setup = np.nan
-        initial_investment = -battery_installation_cost
-        
-        max_years_for_plot_scenario = 20
-        
-        scenario_cumulative_data = []
-        scenario_cumulative_data.append({'Year': 0, 'Cumulative_Money': initial_investment, 'Scenario': scenario_name})
-
-        if annual_savings <= 0:
-            print(f"  Warning: No savings for {scenario_name} ({annual_savings:.2f} EUR). No breakeven.")
-            # Extend flat line for non-breakeven
-            for year in range(1, max_years_for_plot_scenario + 1):
-                scenario_cumulative_data.append({'Year': year, 'Cumulative_Money': initial_investment, 'Scenario': scenario_name})
-        else:
-            print(f"  Annual Savings: {annual_savings:.2f} EUR/year")
-
-            if battery_installation_cost > 0:
-                breakeven_period_with_setup = battery_installation_cost / annual_savings
-                print(f"  Breakeven Period: {breakeven_period_with_setup:.2f} years")
-                # Extend plot years if breakeven is longer
-                max_years_for_plot_scenario = max(max_years_for_plot_scenario, int(np.ceil(breakeven_period_with_setup)) + 5)
-            else:
-                breakeven_period_with_setup = 0.0
-                print(f"  Breakeven Period: 0.00 years (No installation cost)")
-                max_years_for_plot_scenario = max_years_for_plot_scenario
-
-            # Calculate cumulative savings for plotting
-            cumulative_money = initial_investment
-            for year in range(1, max_years_for_plot_scenario + 1):
-                cumulative_money += annual_savings
-                scenario_cumulative_data.append({'Year': year, 'Cumulative_Money': cumulative_money, 'Scenario': scenario_name})
-        
-        cumulative_savings_data.extend(scenario_cumulative_data)
-
-        breakeven_results.append({
-            'Scenario': scenario_name,
-            'Battery_Size_kWh': scenario_name,
-            'Calculated_Annual_Energy_Cost_EUR': scenario_annual_energy_cost,
-            'Installation_Cost_EUR': battery_installation_cost,
-            'Annual_Grid_Import_kWh': scenario_annual_import_kwh,
-            'Annual_Grid_Export_kWh': scenario_annual_export_kwh,
-            'Returns_Per_Year_EUR': annual_savings,
-            'Breakeven_With_Setup_Years': f"{breakeven_period_with_setup:.2f}" if pd.notna(breakeven_period_with_setup) else str(breakeven_period_with_setup)
-        })
-
-    # Convert results to DataFrame for CSV
-    results_df = pd.DataFrame(breakeven_results)
+    # --- Calculate Costs and Breakeven Periods ---
     
-    # Re-order columns for readability
+    # Create a new DataFrame for calculations
+    breakeven_df = annual_flows_df.copy()
+    
+    # Calculate annual energy costs for each scenario
+    breakeven_df['Annual_Import_Cost'] = breakeven_df['Grid_Import'] * GRID_IMPORT_PRICE
+    breakeven_df['Annual_Export_Revenue'] = breakeven_df['Grid_Export_to_Grid'] * EXPORT_REVENUE_PRICE
+    breakeven_df['Annual_Net_Energy_Cost'] = breakeven_df['Annual_Import_Cost'] - breakeven_df['Annual_Export_Revenue']
+    
+    # Add installation costs from the dictionary
+    breakeven_df['Installation_Cost_EUR'] = breakeven_df.index.map(installation_costs).fillna(0)
+    
+    # Get the baseline cost from the 'PV_NoBattery' scenario
+    no_battery_cost = breakeven_df.loc['PV_NoBattery', 'Annual_Net_Energy_Cost']
+    
+    # Calculate annual savings against the baseline
+    breakeven_df['Annual_Savings_EUR'] = no_battery_cost - breakeven_df['Annual_Net_Energy_Cost']
+    
+    # Calculate breakeven period
+    breakeven_df['Breakeven_With_Setup_Years'] = breakeven_df.apply(
+        lambda row: row['Installation_Cost_EUR'] / row['Annual_Savings_EUR'] if row['Annual_Savings_EUR'] > 0 else np.inf, 
+        axis=1
+    )
+    
+    # Prepare the final results DataFrame
+    breakeven_results_df = breakeven_df.rename(columns={
+        'Annual_Net_Energy_Cost': 'Calculated_Annual_Energy_Cost_EUR',
+        'Annual_Savings_EUR': 'Returns_Per_Year_EUR',
+        'Grid_Import': 'Annual_Grid_Import_kWh',
+        'Grid_Export_to_Grid': 'Annual_Grid_Export_kWh'
+    }).copy()
+
+    # Add Scenario and Battery Size columns
+    breakeven_results_df['Scenario'] = breakeven_results_df.index
+    breakeven_results_df['Battery_Size_kWh'] = breakeven_results_df['Scenario'].apply(
+        lambda x: x.replace('kWh', '') if 'kWh' in x else 'No Battery'
+    )
+    
+    # Sort for consistent output
+    breakeven_results_df['sort_key'] = breakeven_results_df['Battery_Size_kWh'].apply(lambda x: int(x) if x.replace('.', '', 1).isdigit() else 0)
+    breakeven_results_df.sort_values(by='sort_key', inplace=True)
+    breakeven_results_df.drop('sort_key', axis=1, inplace=True)
+
+    # Select and reorder desired columns for the output CSV
     desired_columns = [
         'Scenario', 'Battery_Size_kWh', 'Calculated_Annual_Energy_Cost_EUR', 'Installation_Cost_EUR',
         'Annual_Grid_Import_kWh', 'Annual_Grid_Export_kWh',
         'Returns_Per_Year_EUR', 'Breakeven_With_Setup_Years'
     ]
     
-    # Infer Battery_Size_kWh and sort
-    results_df['Battery_Size_Num'] = results_df['Scenario'].apply(lambda x: int(x.replace('kWh', '')) if 'kWh' in x else 0)
-    results_df = results_df.sort_values(by='Battery_Size_Num').reset_index(drop=True)
-    results_df['Battery_Size_kWh'] = results_df['Battery_Size_Num'].apply(lambda x: f"{int(x)} kWh" if x > 0 else "No Battery")
-    results_df = results_df.drop(columns=['Battery_Size_Num'])
+    results_df = breakeven_results_df[desired_columns].copy()
 
-    results_df = results_df[desired_columns]
-
+    # Save results to CSV
     results_df.to_csv(output_breakeven_csv_path, index=False, float_format='%.2f')
     print(f"\n--- Breakeven periods saved to: {os.path.abspath(output_breakeven_csv_path)} ---")
     print("\nBreakeven Results Overview:")
@@ -207,8 +129,7 @@ try:
 
     # --- Plotting Bar Graphs ---
     print("\n--- Generating Breakeven Plots ---")
-
-    # Ensure numeric types for plotting
+    
     plot_df = results_df.copy()
     plot_df['Returns_Per_Year_EUR'] = pd.to_numeric(plot_df['Returns_Per_Year_EUR'], errors='coerce')
     plot_df['Breakeven_With_Setup_Years'] = pd.to_numeric(plot_df['Breakeven_With_Setup_Years'], errors='coerce')
@@ -217,62 +138,49 @@ try:
     plot_df['Battery_Size_Sort'] = plot_df['Scenario'].apply(lambda x: int(x.replace('kWh', '')) if 'kWh' in x else 0)
     plot_df = plot_df.sort_values(by='Battery_Size_Sort').reset_index(drop=True)
 
+    def generate_bar_plot(df, y_col, title, filename, y_label):
+        fig, ax = plt.subplots(figsize=(12, 7))
+        sns.barplot(x='Scenario', y=y_col, data=df, hue='Scenario', palette='viridis', ax=ax, legend=False)
+        ax.set_title(title)
+        ax.set_xlabel('Battery Nominal Capacity')
+        ax.set_ylabel(y_label)
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+        for p in ax.patches:
+            if pd.notna(p.get_height()):
+                ax.annotate(f"{p.get_height():.2f}",
+                            (p.get_x() + p.get_width() / 2., p.get_height()),
+                            ha='center', va='center', fontsize=9, color='black', xytext=(0, 5),
+                            textcoords='offset points')
+        plot_path = os.path.join(plots_output_directory, filename)
+        fig.savefig(plot_path, dpi=300)
+        plt.close(fig)
+        print(f"Bar graph for {y_label} saved to: {os.path.abspath(plot_path)}")
 
-    # 1. Bar Graph for Annual Returns
-    fig1, ax1 = plt.subplots(figsize=(12, 7))
-    sns.barplot(x='Battery_Size_kWh', y='Returns_Per_Year_EUR', data=plot_df, hue='Battery_Size_kWh', palette='viridis', ax=ax1, legend=False)
-    ax1.set_title('Annual Returns Per Battery Scenario')
-    ax1.set_xlabel('Battery Nominal Capacity')
-    ax1.set_ylabel('Returns Per Year (EUR)')
-    ax1.grid(axis='y', linestyle='--', alpha=0.7)
-    
-    # Add value labels
-    for p in ax1.patches:
-        ax1.annotate(f"{p.get_height():.2f}", 
-                     (p.get_x() + p.get_width() / 2., p.get_height()), 
-                     ha='center', va='center', fontsize=9, color='black', xytext=(0, 5), 
-                     textcoords='offset points')
-
-    returns_plot_path = os.path.join(plots_output_directory, "Annual_Returns_Per_Battery_Scenario2.png")
-    fig1.savefig(returns_plot_path, dpi=300)
-    plt.close(fig1)
-    print(f"Bar graph for Annual Returns saved to: {os.path.abspath(returns_plot_path)}")
-
-
-    # 2. Bar Graph for Breakeven Period
-    fig2, ax2 = plt.subplots(figsize=(12, 7))
-    sns.barplot(x='Battery_Size_kWh', y='Breakeven_With_Setup_Years', data=plot_df, hue='Battery_Size_kWh', palette='magma', ax=ax2, legend=False)
-    ax2.set_title('Breakeven Period Per Battery Scenario (With Setup Cost)')
-    ax2.set_xlabel('Battery Nominal Capacity')
-    ax2.set_ylabel('Breakeven Period (Years)')
-    ax2.grid(axis='y', linestyle='--', alpha=0.7)
-
-    # Add value labels
-    for p in ax2.patches:
-        if pd.notna(p.get_height()):
-            ax2.annotate(f"{p.get_height():.2f}", 
-                         (p.get_x() + p.get_width() / 2., p.get_height()), 
-                         ha='center', va='center', fontsize=9, color='black', xytext=(0, 5), 
-                         textcoords='offset points')
-    
-    breakeven_plot_path = os.path.join(plots_output_directory, "Breakeven_Period_Per_Battery_Scenario2.png")
-    fig2.savefig(breakeven_plot_path, dpi=300)
-    plt.close(fig2)
-    print(f"Bar graph for Breakeven Period saved to: {os.path.abspath(breakeven_plot_path)}")
+    generate_bar_plot(plot_df, 'Returns_Per_Year_EUR', 'Annual Returns Per Battery Scenario', 'Annual_Returns_Per_Battery_Scenario2.png', 'Returns Per Year (EUR)')
+    generate_bar_plot(plot_df, 'Breakeven_With_Setup_Years', 'Breakeven Period Per Battery Scenario (With Setup Cost)', 'Breakeven_Period_Per_Battery_Scenario2.png', 'Breakeven Period (Years)')
 
     # --- 3. Cumulative Savings (Worm) Graph ---
     print("\n--- Generating Cumulative Savings Plot ---")
-
-    cumulative_df = pd.DataFrame(cumulative_savings_data)
     
-    # Sort for consistent plotting order
-    cumulative_df['Battery_Size_Sort'] = cumulative_df['Scenario'].apply(lambda x: int(x.replace('kWh', '')) if 'kWh' in x else 0)
-    cumulative_df = cumulative_df.sort_values(by=['Battery_Size_Sort', 'Year']).reset_index(drop=True)
+    cumulative_data = []
+    max_years = 40
 
+    for scenario_name, row in breakeven_results_df.iterrows():
+        installation_cost = row['Installation_Cost_EUR']
+        annual_savings = row['Returns_Per_Year_EUR']
+        cumulative_money = -installation_cost
+        
+        cumulative_data.append({'Year': 0, 'Cumulative_Money': cumulative_money, 'Scenario': scenario_name})
+        
+        years_to_plot = max(max_years, int(np.ceil(row['Breakeven_With_Setup_Years'])) + 5) if pd.notna(row['Breakeven_With_Setup_Years']) else max_years
+        
+        for year in range(1, int(years_to_plot) + 1):
+            cumulative_money += annual_savings
+            cumulative_data.append({'Year': year, 'Cumulative_Money': cumulative_money, 'Scenario': scenario_name})
+            
+    cumulative_df = pd.DataFrame(cumulative_data)
 
     fig3, ax3 = plt.subplots(figsize=(14, 8))
-    
-    # Plot lines for each scenario
     sns.lineplot(x='Year', y='Cumulative_Money', hue='Scenario', data=cumulative_df, ax=ax3, marker='o', markersize=4)
 
     ax3.set_title('Cumulative Financial Position Over Time (Towards Breakeven)')
@@ -281,24 +189,20 @@ try:
     ax3.axhline(0, color='red', linestyle='--', linewidth=1, label='Breakeven Point (0 EUR)')
     ax3.grid(True, linestyle='--', alpha=0.7)
     ax3.legend(title='Battery Scenario')
-
-    # Adjust x-axis ticks and limits
+    
     max_year_plot_all_scenarios = cumulative_df['Year'].max()
     ax3.set_xticks(range(0, int(max_year_plot_all_scenarios) + 1, max(1, int(max_year_plot_all_scenarios / 10))))
-    ax3.set_xlim(0, max_year_plot_all_scenarios * 1.05) 
+    ax3.set_xlim(0, max_year_plot_all_scenarios * 1.05)
     
-    # Adjust y-axis limits
     min_y = cumulative_df['Cumulative_Money'].min()
     max_y = cumulative_df['Cumulative_Money'].max()
-    y_buffer = (max_y - min_y) * 0.1 
+    y_buffer = (max_y - min_y) * 0.1
     ax3.set_ylim(min_y - y_buffer, max_y + y_buffer)
-
 
     cumulative_plot_path = os.path.join(plots_output_directory, "Cumulative_Savings_Breakeven_Plot2.png")
     fig3.savefig(cumulative_plot_path, dpi=300)
     plt.close(fig3)
     print(f"Cumulative savings (worm) plot saved to: {os.path.abspath(cumulative_plot_path)}")
-
 
 except Exception as e:
     print(f"An error occurred: {e}")

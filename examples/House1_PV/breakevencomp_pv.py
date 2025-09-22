@@ -15,7 +15,7 @@ os.makedirs(output_dir, exist_ok=True)
 try:
     manufacturing_df = pd.read_csv(os.path.join(input_dir, "battery_co2_manufacturing_vs_usage.csv"))
     # Assuming 'breakeven_periods.csv' is available in a similar output structure
-    cost_breakeven_file_path = os.path.join(script_dir, "output", "breakeven_plots", "breakeven_periods.csv")
+    cost_breakeven_file_path = os.path.join(script_dir, "output","breakeven_periods.csv")
     cost_breakeven_df = pd.read_csv(cost_breakeven_file_path)
 except FileNotFoundError as e:
     print(f"Error: One of the required CSV files was not found. Please ensure the path is correct. {e}")

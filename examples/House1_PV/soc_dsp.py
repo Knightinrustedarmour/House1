@@ -1,167 +1,177 @@
-import os
-import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
+import os 
+import pandas as pd 
+import matplotlib.pyplot as plt 
+import seaborn as sns 
+from matplotlib.backends.backend_pdf import PdfPages 
+import numpy as np 
+from zipfile import ZipFile 
+import argparse  
 
-def soc(charge_series, discharge_series, index, 
-        nominal_capacity_wh=5000, charge_eff=0.96, discharge_eff=0.96, 
-        loss_rate=0.0005, initial_soc_wh=None, soc_min_frac=0.1):
-    """
-    Calculates the State of Charge (SoC) over time.
-    """
-    if initial_soc_wh is None:
-        initial_soc_wh = 0.5 * nominal_capacity_wh
+def generate_soc_density_plots(base_output_dir, scenarios_config): 
+    """ 
+    Generates and saves 2D Kernel Density Estimate (KDE) plots 
+    showing the density of SOC levels across hours of the day for each battery scenario. 
+    The x-axis will be SOC (as whole numbers), y-axis will be Hour of Day, 
+    and color intensity will represent density of occurrences, with a numerical colorbar. 
+    This version focuses only on the central 2D density plot, without marginal subplots. 
 
-    soc_values = [initial_soc_wh]
-    soc_min = soc_min_frac * nominal_capacity_wh
+    Args: 
+        base_output_dir (str): The base directory where scenario output folders are located. 
+        scenarios_config (dict): A dictionary containing scenario configurations, 
+                                 including scenario names and their capacities. 
+    """ 
+    print("\n--- Generating SOC Density Plots ---") 
+    print(f"DEBUG: Scenarios selected for processing: {list(scenarios_config.keys())}") 
 
-    for i in range(1, len(index)):
-        dt_hours = (index[i] - index[i - 1]).total_seconds() / 3600
-        last_soc = soc_values[-1]
+    if not scenarios_config: 
+        print("No scenarios were selected for plotting based on your input. Exiting.") 
+        return 
 
-        available_capacity = nominal_capacity_wh - last_soc
-        usable_energy = last_soc - soc_min
+    pdf_output_path = os.path.join(base_output_dir, "SOC_Density_Plots.pdf") 
+    all_png_files = [] 
 
-        # The input data is in Wh-min, convert to Wh.
-        charge_energy = min(charge_series.iloc[i] * charge_eff, available_capacity)
-        discharge_energy = min(discharge_series.iloc[i] / discharge_eff, usable_energy)
+    with PdfPages(pdf_output_path) as pdf: 
+        for scenario_name, config in scenarios_config.items(): 
+            if config["capacity"] <= 0: 
+                print(f"    Skipping {scenario_name}: No battery capacity.") 
+                continue 
 
-        effective_soc = last_soc - (loss_rate * nominal_capacity_wh * dt_hours)
-        new_soc = effective_soc + charge_energy - discharge_energy
+            scenario_output_dir = os.path.join(base_output_dir, scenario_name) 
+            os.makedirs(scenario_output_dir, exist_ok=True) 
 
-        soc_values.append(new_soc)
+            csv_path = os.path.join(scenario_output_dir, f"Combined_Battery_Data_{scenario_name}.csv") 
 
-    return [val / nominal_capacity_wh * 100 for val in soc_values]
+            if not os.path.exists(csv_path): 
+                print(f"    Warning: CSV file not found for {scenario_name}: {csv_path}. Skipping plot.") 
+                continue 
 
-def generate_monthly_soc_dsp(scenario_identifier, scenario_config, nominal_capacities):
-    """
-    Generates monthly density scatter plots for the battery's State of Charge.
-    """
-    
-    ALL_FLOWS = {
-        "Battery_Charge": [
-            ("SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')", "SolphLabel(location='House1', mtress_component='storage1', solph_node='Battery_Storage')"),
-            ("('House1', 'ElectricityCarrier', 'distribution')", "('House1', 'storage1', 'Battery_Storage')")
-        ],
-        "Battery_Discharge": [
-            ("SolphLabel(location='House1', mtress_component='storage1', solph_node='Battery_Storage')", "SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')"),
-            ("('House1', 'storage1', 'Battery_Storage')", "('House1', 'ElectricityCarrier', 'distribution')")
-        ]
-    }
+            try: 
+                df = pd.read_csv(csv_path, index_col=0, parse_dates=True) 
+                soc_col_name = f"SOC_{scenario_name}_%" 
 
-    nominal_capacity = nominal_capacities.get(scenario_identifier)
-    if nominal_capacity is None:
-        print(f"No nominal capacity found for {scenario_identifier}. Skipping SoC plots.")
-        return
+                if soc_col_name not in df.columns or df[soc_col_name].isnull().all(): 
+                    print(f"    Warning: SOC data column '{soc_col_name}' not found or is empty for {scenario_name}. Skipping plot.") 
+                    continue 
 
-    output_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "output", 
-        "soc_dsps",
-        scenario_identifier
-    )
-    os.makedirs(output_dir, exist_ok=True)
+                soc_data_int = df[soc_col_name].dropna().astype(int).clip(0, 100) 
+                hour_of_day = soc_data_int.index.hour  
 
-    for month, filename in scenario_config["files"].items():
-        filepath = os.path.join(scenario_config["flow_dir"], filename)
-        if not os.path.exists(filepath):
-            print(f"File not found: {filepath}. Skipping.")
-            continue
+                if soc_data_int.empty: 
+                    print(f"    Warning: No valid SOC data points after dropping NaNs for {scenario_name}. Skipping plot.") 
+                    continue 
+
+                print(f"    Generating density plot for {scenario_name}...") 
+
+                # Create a figure and an axes for the plot 
+                fig, ax = plt.subplots(figsize=(10, 7)) # Adjust size as needed 
+
+                # Use seaborn.kdeplot directly for the 2D density plot 
+                # This plots the density contours and fills them with color 
+                kde_plot = sns.kdeplot(x=soc_data_int, y=hour_of_day, fill=True, 
+                                       cmap='viridis', cbar=True, # Enable colorbar directly 
+                                       cbar_kws={"label": "Density of Occurrences"}, # Label for the colorbar 
+                                       ax=ax, # Draw on the created axes 
+                                       clip=((0, 100), (0, 23))) # Clip to desired range, important for kdeplot 
+
+                # Set titles and labels 
+                ax.set_xlabel("SOC (%)") 
+                ax.set_ylabel("Hour of Day") 
+                ax.set_title(f"SOC Density Plot - {scenario_name}\n(Capacity: {config['capacity'] / 1000:.1f} kWh)", y=1.02) # Adjust title position 
+
+                # Set specific ticks for hours and SOC 
+                ax.set_xticks(range(0, 101, 10)) # SOC from 0 to 100, step 10 
+                ax.set_yticks(range(0, 24, 2)) # Hours from 0 to 23, step 2 
+                ax.grid(True, linestyle='--', alpha=0.6) 
+
+                # Ensure plot limits match desired ranges 
+                ax.set_xlim(0, 100) 
+                ax.set_ylim(0, 23) 
+
+                # Adjust layout to prevent labels/titles from overlapping 
+                plt.tight_layout(rect=[0, 0, 0.95, 0.98]) # Adjust rect to make space for suptitle and potential cbar 
+
+                # Save to PDF 
+                pdf.savefig(fig) 
+
+                # Save to PNG 
+                png_path = os.path.join(scenario_output_dir, f"{scenario_name}_SOC_Density_Plot.png") 
+                fig.savefig(png_path, dpi=300) 
+                all_png_files.append(png_path) 
+                plt.close(fig) # Close the figure to free up memory 
+
+            except Exception as e: 
+                print(f"    An error occurred while processing {csv_path} for plotting: {e}") 
+                import traceback 
+                traceback.print_exc() # Print full traceback for debugging 
+
+    print(f"\nAll SOC density plots saved to: {pdf_output_path}") 
+
+    # Optionally, zip the individual PNGs into a combined zip 
+    zip_path = os.path.join(base_output_dir, "All_SOC_Density_Plots.zip") 
+    if all_png_files: 
+        with ZipFile(zip_path, 'w') as zipf: 
+            for file_path in all_png_files: 
+                if os.path.exists(file_path): 
+                    zipf.write(file_path, arcname=os.path.basename(file_path)) 
+                else: 
+                    print(f"    Warning: PNG file not found for zipping: {file_path}") 
+        print(f"All individual SOC density plots zipped to: {zip_path}") 
+    else: 
+        print("No individual SOC density plots were generated to zip.") 
+
+
+# --- Global Configuration --- 
+script_dir = os.path.dirname(os.path.abspath(__file__)) 
+base_output_directory = os.path.join(script_dir, "output")  
+
+# This dictionary holds ALL available scenarios. 
+full_scenarios_config = { 
+    "5kWh": { "capacity": 5000 }, 
+    "NoBattery": { "capacity": 0 }, 
+    "8kWh": { "capacity": 8000 }, 
+    "12kWh": { "capacity": 12000 }, 
+    "15kWh": { "capacity": 15000 }, 
+    "20kWh": { "capacity": 20000 }, 
+    "26kWh": { "capacity": 26000 }, 
+    "50kWh": { "capacity": 50000 } # The new 50kWh scenario is here! 
+} 
+
+
+if __name__ == "__main__": 
+    # 1. Set up argument parser 
+    parser = argparse.ArgumentParser(description="Generate SOC density plots for specified battery scenarios.") 
+    parser.add_argument( 
+        "--scenarios",  
+        nargs='*', # Allows 0 or more arguments (list of strings) 
+        help="Specify battery scenarios to plot (e.g., 5kWh 50kWh). If not provided, all scenarios will be processed." 
+    ) 
+    args = parser.parse_args() 
+
+    print(f"DEBUG: Parsed arguments object: {args}") 
+    print(f"DEBUG: Value of 'scenarios' argument: {args.scenarios}") 
+
+    # 2. Determine which scenarios to process based on arguments 
+    if args.scenarios: 
+        selected_scenarios_config = {} 
+        for s_name in args.scenarios: 
+            if s_name in full_scenarios_config: 
+                selected_scenarios_config[s_name] = full_scenarios_config[s_name] 
+            else: 
+                print(f"Warning: Scenario '{s_name}' not recognized or not found in configuration. Skipping.") 
         
-        try:
-            df = pd.read_csv(filepath, header=[0, 1], index_col=0)
-            df.index = pd.to_datetime(df.index, errors='coerce')
-            
-            if df.index.isna().all():
-                print(f"Skipping {filepath}: All timestamps are invalid. File may be empty or corrupted.")
-                continue
-
-            charge_series = pd.Series(0.0, index=df.index)
-            discharge_series = pd.Series(0.0, index=df.index)
-            
-            for solph_label_tuple in ALL_FLOWS["Battery_Charge"]:
-                try:
-                    charge_series = df[solph_label_tuple]
-                    break
-                except KeyError:
-                    continue
-            
-            for solph_label_tuple in ALL_FLOWS["Battery_Discharge"]:
-                try:
-                    discharge_series = df[solph_label_tuple]
-                    break
-                except KeyError:
-                    continue
-
-            soc_values = soc(
-                charge_series=charge_series,
-                discharge_series=discharge_series,
-                index=df.index,
-                nominal_capacity_wh=nominal_capacity
-            )
-            
-            plot_data = pd.DataFrame({
-                'Time': df.index.hour + df.index.minute / 60,
-                'Day': df.index.day,
-                'SoC': soc_values
-            })
-
-            # Generate Density Scatter Plot using a 2D histogram
-            plt.figure(figsize=(10, 8))
-            ax = sns.histplot(
-                x=plot_data['Day'],
-                y=plot_data['Time'],
-                weights=plot_data['SoC'],
-                cbar=True,
-                cmap="viridis",
-                bins=(31, 24), # Bins for each day and hour
-                cbar_kws={'label': 'Average SoC (%)'},
-                vmin=0, # Set min value for color scale
-                vmax=100 # Set max value for color scale
-            )
-            
-            ax.set_title(f'Battery SoC Density Plot for {month} ({scenario_identifier})')
-            ax.set_xlabel('Day of Month')
-            ax.set_ylabel('Time of Day (hr)')
-            plt.savefig(os.path.join(output_dir, f'soc_dsp_{month}.png'))
-            plt.close()
-            print(f"Generated SoC density plot for {month}.")
+        if not selected_scenarios_config: 
+            print(f"Error: No valid scenarios found to plot from your input: {args.scenarios}.") 
+            print(f"Available scenarios are: {list(full_scenarios_config.keys())}") 
+            exit() 
         
-        except Exception as e:
-            print(f"Error processing {filepath}: {e}. Skipping plots for this file.")
-            continue
+        print(f"Processing only the following specified scenarios: {list(selected_scenarios_config.keys())}") 
+    else: 
+        selected_scenarios_config = full_scenarios_config 
+        print("No specific scenarios requested. Processing all available scenarios.") 
 
-# --- Core Script Execution ---
-if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    
-    scenarios_config = {
-        "PV_NoBattery": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_nobattery_jan23.csv', 'feb': 'flow_nobattery_feb23.csv', 'mar': 'flow_nobattery_mar23.csv', 'apr': 'flow_nobattery_apr23.csv', 'may': 'flow_nobattery_may23.csv', 'jun': 'flow_nobattery_jun23.csv', 'jul': 'flow_nobattery_jul23.csv', 'aug': 'flow_nobattery_aug23.csv', 'sep': 'flow_nobattery_sep23.csv', 'oct': 'flow_nobattery_oct23.csv', 'nov': 'flow_nobattery_nov23.csv', 'dec': 'flow_nobattery_dec23.csv' } },
-        "5kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_5k_jan23.csv', 'feb': 'flow_5k_feb23.csv', 'mar': 'flow_5k_mar23.csv', 'apr': 'flow_5k_apr23.csv', 'may': 'flow_5k_may23.csv', 'jun': 'flow_5k_jun23.csv', 'jul': 'flow_5k_jul23.csv', 'aug': 'flow_5k_aug23.csv', 'sep': 'flow_5k_sep23.csv', 'oct': 'flow_5k_oct23.csv', 'nov': 'flow_5k_nov23.csv', 'dec': 'flow_5k_dec23.csv' } },
-        "8kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_8k_jan23.csv', 'feb': 'flow_8k_feb23.csv', 'mar': 'flow_8k_mar23.csv', 'apr': 'flow_8k_apr23.csv', 'may': 'flow_8k_may23.csv', 'jun': 'flow_8k_jun23.csv', 'jul': 'flow_8k_jul23.csv', 'aug': 'flow_8k_aug23.csv', 'sep': 'flow_8k_sep23.csv', 'oct': 'flow_8k_oct23.csv', 'nov': 'flow_8k_nov23.csv', 'dec': 'flow_8k_dec23.csv' } },
-        "12kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_12k_jan23.csv', 'feb': 'flow_12k_feb23.csv', 'mar': 'flow_12k_mar23.csv', 'apr': 'flow_12k_apr23.csv', 'may': 'flow_12k_may23.csv', 'jun': 'flow_12k_jun23.csv', 'jul': 'flow_12k_jul23.csv', 'aug': 'flow_12k_aug23.csv', 'sep': 'flow_12k_sep23.csv', 'oct': 'flow_12k_oct23.csv', 'nov': 'flow_12k_nov23.csv', 'dec': 'flow_12k_dec23.csv' } },
-        "15kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_15k_jan23.csv', 'feb': 'flow_15k_feb23.csv', 'mar': 'flow_15k_mar23.csv', 'apr': 'flow_15k_apr23.csv', 'may': 'flow_15k_may23.csv', 'jun': 'flow_15k_jun23.csv', 'jul': 'flow_15k_jul23.csv', 'aug': 'flow_15k_aug23.csv', 'sep': 'flow_15k_sep23.csv', 'oct': 'flow_15k_oct23.csv', 'nov': 'flow_15k_nov23.csv', 'dec': 'flow_15k_dec23.csv' } },
-        "20kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_20k_jan23.csv', 'feb': 'flow_20k_feb23.csv', 'mar': 'flow_20k_mar23.csv', 'apr': 'flow_20k_apr23.csv', 'may': 'flow_20k_may23.csv', 'jun': 'flow_20k_jun23.csv', 'jul': 'flow_20k_jul23.csv', 'aug': 'flow_20k_aug23.csv', 'sep': 'flow_20k_sep23.csv', 'oct': 'flow_20k_oct23.csv', 'nov': 'flow_20k_nov23.csv', 'dec': 'flow_20k_dec23.csv' } },
-        "26kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_26k_jan23.csv', 'feb': 'flow_26k_feb23.csv', 'mar': 'flow_26k_mar23.csv', 'apr': 'flow_26k_apr23.csv', 'may': 'flow_26k_may23.csv', 'jun': 'flow_26k_jun23.csv', 'jul': 'flow_26k_jul23.csv', 'aug': 'flow_26k_aug23.csv', 'sep': 'flow_26k_sep23.csv', 'oct': 'flow_26k_oct23.csv', 'nov': 'flow_26k_nov23.csv', 'dec': 'flow_26k_dec23.csv' } },
-        "50kWh": { "flow_dir": os.path.join(script_dir, "flows"), "files": { 'jan': 'flow_50k_jan23.csv', 'feb': 'flow_50k_feb23.csv', 'mar': 'flow_50k_mar23.csv', 'apr': 'flow_50k_apr23.csv', 'may': 'flow_50k_may23.csv', 'jun': 'flow_50k_jun23.csv', 'jul': 'flow_50k_jul23.csv', 'aug': 'flow_50k_aug23.csv', 'sep': 'flow_50k_sep23.csv', 'oct': 'flow_50k_oct23.csv', 'nov': 'flow_50k_nov23.csv', 'dec': 'flow_50k_dec23.csv' } }
-    }
-    
-    # Map scenario identifiers to nominal capacity in Wh.
-    nominal_capacities = {
-        "PV_NoBattery": None,
-        "5kWh": 5000,
-        "8kWh": 8000,
-        "12kWh": 12000,
-        "15kWh": 15000,
-        "20kWh": 20000,
-        "26kWh": 26000,
-        "50kWh": 50000
-    }
-
-    scenarios_to_plot = list(nominal_capacities.keys())
-    
-    for scenario_identifier in scenarios_to_plot:
-        print(f"\n--- Generating SoC plots for scenario: {scenario_identifier} ---")
-        generate_monthly_soc_dsp(scenario_identifier, scenarios_config[scenario_identifier], nominal_capacities)
-    
-    print("\nSoC plot generation complete. Check the 'output/soc_dsps' directory.")
+    # 3. Proceed with plot generation using the selected scenarios 
+    if not os.path.exists(base_output_directory): 
+        print(f"Error: Base output directory '{base_output_directory}' not found.") 
+        print("Please ensure your 'output' directory exists and contains scenario subfolders with CSVs.") 
+    else: 
+        generate_soc_density_plots(base_output_directory, selected_scenarios_config)

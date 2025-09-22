@@ -6,7 +6,7 @@ import numpy as np
 
 # --- Paths ---
 script_dir = os.path.dirname(os.path.abspath(__file__))
-input_dir = os.path.join(script_dir, "output", "carbon_footprint_analysis_csv")
+input_dir = os.path.join(script_dir, "output", "co2_footprint_analysis_csv")
 output_dir = os.path.join(script_dir, "output", "breakeven_plots")
 os.makedirs(output_dir, exist_ok=True)
 
