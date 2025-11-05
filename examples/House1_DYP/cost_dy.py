@@ -10,8 +10,20 @@ output_directory = os.path.join(script_dir, "output")
 output_csv_path = os.path.join(output_directory, "scenario_net_costs.csv")
 
 # Energy cost/revenue rates (adjust as needed)
-IMPORT_COST_PER_KWH = 0.35  # EUR/kWh
-EXPORT_REVENUE_PER_KWH = 0.08  # EUR/kWh
+# --- Replace fixed import cost with actual annual totals ---
+EXPORT_REVENUE_PER_KWH = 0.08  # EUR/kWh (kept same)
+
+# Actual total annual import costs (€) from grid_import_cost_summary.csv
+annual_import_costs = {
+    "PV_NoBattery": 2785.928865,
+    "5kWh": 2447.080309,
+    "8kWh": 2285.073499,
+    "12kWh": 2100.318959,
+    "15kWh": 1984.787786,
+    "20kWh": 1828.227125,
+    "26kWh": 1694.282317,
+    "50kWh": 1433.947132
+}
 
 # Define scenarios with their capacities and corresponding CSV naming patterns
 scenarios_config = {
@@ -86,7 +98,8 @@ else:
             for scenario_name in df_master['Scenario'].unique():
                 scenario_df = df_master[df_master['Scenario'] == scenario_name].copy()
                 
-                scenario_df['Import_Cost (EUR)'] = scenario_df['Grid_Import'] * IMPORT_COST_PER_KWH
+                scenario_df['Import_Cost (EUR)'] = annual_import_costs.get(scenario_name, np.nan) / len(unique_months)
+
                 scenario_df['Export_Revenue (EUR)'] = scenario_df['Grid_Export_to_Grid'] * EXPORT_REVENUE_PER_KWH
                 
                 scenario_df['Net_Monthly_Cost (EUR)'] = scenario_df['Import_Cost (EUR)'] - scenario_df['Export_Revenue (EUR)']

@@ -18,7 +18,7 @@ from mtress._helpers import get_flows
 os.chdir(os.path.dirname(__file__))
 
 # Load full data once outside the loop for efficiency
-op_data_full = pd.read_csv(os.path.join("..", "op_data_power.csv"))
+op_data_full = pd.read_csv(os.path.join("..","op_data_power.csv"))
 
 # Define the full date range for op_data_full (based on the original CSV's start)
 full_date_range = pd.date_range(start="2022-08-08 00:00:00", periods=len(op_data_full), freq="min", tz="Europe/Berlin")
@@ -40,7 +40,7 @@ months_to_simulate = [
 ]
 
 
-output_dir = "flows_5k"
+output_dir = "flows"
 os.makedirs(output_dir, exist_ok=True)
 
 for month_info in months_to_simulate:
@@ -74,17 +74,19 @@ for month_info in months_to_simulate:
     monthly_meta_model.add_location(monthly_House1)
 
     monthly_House1.add(carriers.ElectricityCarrier())
-    monthly_House1.add(technologies.ElectricityGridConnection(working_rate=35e-6, revenue=8e-6))
+    monthly_House1.add(technologies.ElectricityGridConnection(working_rate=0.35, revenue=0.08))
     monthly_House1.add(demands.Electricity(name="demand", time_series=op_data["Load_W"]))
     monthly_House1.add(technologies.RenewableElectricitySource(
         name="PV",
         nominal_power=1,
         specific_generation=op_data["Modelled_Energy"],
-        fixed=True
+        fixed=True 
     ))
+   
+
     monthly_House1.add(technologies.BatteryStorage(
         name="storage1",
-        nominal_capacity=5000,
+        nominal_capacity=12000, 
         charging_C_Rate=0.77,
         discharging_C_Rate=0.77,
         charging_efficiency=0.96,
@@ -101,20 +103,19 @@ for month_info in months_to_simulate:
 
     solph_representation.build_solph_model()
     # Set tee to False to suppress detailed solver output for each month
-    solved_model = solph_representation.solve(solve_kwargs={"tee": False}) 
+    solved_model = solph_representation.solve(solve_kwargs={"tee": False})
+    myresults = solph.processing.results(solved_model)
+    flows = get_flows(myresults) 
     plot = solph_representation.graph(
     detail=True, flow_results=flows, flow_color=None
 )
-    plot.render(outfile="House_1.png")
-
-    myresults = solph.processing.results(solved_model)
-    flows = get_flows(myresults)
+    plot.render(outfile="House1_dy.png")
 
     output = pd.DataFrame(flows)
     
     # Save flows to a unique CSV file for each month
-    file_name = f"flow_5k_{start_date.strftime('%b%y').lower()}.csv"
+    file_name = f"flow_12k_{start_date.strftime('%b%y').lower()}.csv"
     output.to_csv(os.path.join(output_dir, file_name), index=True)
     print(f"Saved {file_name}")
 
-print("All 2023 monthly simulations complete!")
+print("All 2023 monthly simulations complete!") 

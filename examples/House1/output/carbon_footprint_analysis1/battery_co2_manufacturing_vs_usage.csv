@@ -1,0 +1,10 @@
+Scenario,CO2 from Battery Manufacturing (gCO2eq),CO2 from Battery Discharge (gCO2eq),Total Yearly Operational CO2 (gCO2eq)
+NoPV,0,0,0
+PV_NoBattery,0,0,0
+5kWh,27250,0,0
+8kWh,43600,0,0
+12kWh,65400,0,0
+15kWh,81750,0,0
+20kWh,109000,0,0
+26kWh,141700,0,0
+50kWh,272500,0,0

@@ -96,7 +96,8 @@ def calculate_monthly_co2_emissions(scenario_identifier, scenario_config):
             co2_grid_import = total_grid_import_kwh * CO2_EMISSION_FACTORS["Grid_import"]
             co2_battery_discharge = total_battery_discharge_kwh * CO2_EMISSION_FACTORS["Battery_discharge"]
 
-            total_co2_emissions_g = co2_pv + co2_grid_import + co2_battery_discharge
+            total_co2_emissions_g = co2_pv + co2_grid_import + BATTERY_MANUFACTURING_CO2_G .get(scenario_identifier, 0) + co2_battery_discharge
+
 
             monthly_data.append({
                 "Month": month_name,

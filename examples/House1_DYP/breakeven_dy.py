@@ -16,9 +16,20 @@ output_breakeven_csv_path = os.path.join(script_dir, "output", "breakeven_period
 plots_output_directory = os.path.join(script_dir, "output", "breakeven_plots")
 os.makedirs(plots_output_directory, exist_ok=True)
 
-# --- Financial Parameters ---
-GRID_IMPORT_PRICE = 0.35  # EUR/kWh
-EXPORT_REVENUE_PRICE = 0.08  # EUR/kWh
+# --- Actual total annual import costs (€) from grid_import_cost_summary.csv ---
+annual_import_costs = {
+    "PV_NoBattery": 2785.928865,
+    "5kWh": 2447.080309,
+    "8kWh": 2285.073499,
+    "12kWh": 2100.318959,
+    "15kWh": 1984.787786,
+    "20kWh": 1828.227125,
+    "26kWh": 1694.282317,
+    "50kWh": 1433.947132
+}
+
+EXPORT_REVENUE_PRICE = 0.08  # still needed for export benefit
+
 
 print("--- Starting Breakeven Period Calculation ---")
 
@@ -75,8 +86,8 @@ try:
     no_battery_annual_import_kwh = no_battery_data['Grid_Import'].iloc[0]
     no_battery_annual_export_kwh = no_battery_data['Grid_Export_to_Grid'].iloc[0]
     
-    no_battery_annual_energy_cost = (no_battery_annual_import_kwh * GRID_IMPORT_PRICE) - (no_battery_annual_export_kwh * EXPORT_REVENUE_PRICE)
-    
+    no_battery_annual_energy_cost = annual_import_costs["PV_NoBattery"]
+
     print(f"\nBaseline Annual Energy Cost (No Battery): {no_battery_annual_energy_cost:.2f} EUR")
     print(f"(Based on {no_battery_annual_import_kwh:.2f} kWh import and {no_battery_annual_export_kwh:.2f} kWh export)")
 
@@ -95,7 +106,7 @@ try:
         scenario_annual_import_kwh = scenario_data['Grid_Import'].iloc[0]
         scenario_annual_export_kwh = scenario_data['Grid_Export_to_Grid'].iloc[0]
 
-        scenario_annual_energy_cost = (scenario_annual_import_kwh * GRID_IMPORT_PRICE) - (scenario_annual_export_kwh * EXPORT_REVENUE_PRICE)
+        scenario_annual_energy_cost = annual_import_costs.get(scenario_name, np.nan)
 
         print(f"\n--- Scenario: {scenario_name} ---")
         print(f"  Installation Cost: {battery_installation_cost:.2f} EUR")
