@@ -1,42 +1,12 @@
 import os
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 
-# --- Helper: Try both tuple and SolphLabel headers ---
-def get_flow(results, tuple_key):
-    # Build SolphLabel form of the key
-    solph_key = tuple(
-        f"SolphLabel(location='{a}', mtress_component='{b}', solph_node='{c}')"
-        for (a, b, c) in tuple_key
-    )
+os.chdir(os.path.dirname(__file__))
 
-    # Try tuple version
-    try:
-        return results[tuple_key]
-    except KeyError:
-        pass
-
-    # Try SolphLabel version
-    try:
-        return results[solph_key]
-    except KeyError:
-        pass
-
-    raise KeyError(f"❌ Could not find flow for: {tuple_key}\nPresent columns:\n{list(results.columns)[:10]}...")
-
-
-# --- Set working directory to script folder ---
-script_dir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(script_dir)
-print("WORKING DIRECTORY SET TO:", os.getcwd())
-
-flows_dir = os.path.join(script_dir, "flows")
-output_dir = os.path.join(script_dir, "output", "scenario_pdfs")
-os.makedirs(output_dir, exist_ok=True)
-
-# --- Months & scenarios ---
 months = [
+    ('jan', '2023-01-01', '2023-01-31'),
+    ('feb', '2023-02-01', '2023-02-28'),
     ('mar', '2023-03-01', '2023-03-31'),
     ('apr', '2023-04-01', '2023-04-30'),
     ('may', '2023-05-01', '2023-05-31'),
@@ -44,91 +14,131 @@ months = [
     ('jul', '2023-07-01', '2023-07-31'),
     ('aug', '2023-08-01', '2023-08-31'),
     ('sep', '2023-09-01', '2023-09-30'),
+    ('oct', '2023-10-01', '2023-10-31'),
+    ('nov', '2023-11-01', '2023-11-30'),
+    ('dec', '2023-12-01', '2023-12-31'),
 ]
 
-scenarios = ['NB']  # add more when ready: ['NB','5K','8K','12K','15K','20K','26K','50K']
-
-# --- Loop scenarios and months ---
+scenarios = ['5k', '8k', '12k', '15k', '20k', '26k', '50k', 'NB']  # NB = no battery
+#scenarios = ['NB']
 for scenario in scenarios:
     for m, start, end in months:
 
-        csv_path = os.path.join(flows_dir, f"flow_{scenario}_{m}23.csv")
-        pdf_path = os.path.join(output_dir, f"{scenario}_{m}.pdf")
+        # Input CSV
+        csv_path = os.path.join("flows", f"flow_{scenario}_{m}23.csv")
 
+        # Output folder for this scenario
+        output_dir = os.path.join("output", "scenario_pngs", scenario)
+        os.makedirs(output_dir, exist_ok=True)
+
+        # Load results
         results = pd.read_csv(csv_path, header=[0, 1], index_col=0, parse_dates=True)
+        df = pd.DataFrame(index=results.index)
+        df.index = pd.to_datetime(df.index, utc=True)
 
-        # Define flows
-        col_grid_import = (('House1', 'ElectricityGridConnection', 'grid_import'),
-                           ('House1', 'ElectricityCarrier', 'distribution'))
-        col_grid_export = (('House1', 'ElectricityCarrier', 'feed_in'),
-                           ('House1', 'ElectricityGridConnection', 'grid_export'))
-        col_pv_dist = (('House1', 'PV', 'connection'),
-                       ('House1', 'ElectricityCarrier', 'distribution'))
-        col_demand = (('House1', 'demand', 'input'),
-                        ('House1', 'demand', 'sink'))
-
+        # Battery flows (if applicable)
         if scenario != 'NB':
-            col_batt_charge = (('House1', 'ElectricityCarrier', 'distribution'),
-                               ('House1', 'storage1', 'Battery_Storage'))
-            col_batt_discharge = (('House1', 'storage1', 'Battery_Storage'),
-                                   ('House1', 'ElectricityCarrier', 'distribution'))
-        else:
-            col_batt_charge = col_batt_discharge = None
-
-        # Build DF
-        df = pd.DataFrame(index=pd.to_datetime(results.index, utc=True))
-        df["Grid_import"] = get_flow(results, col_grid_import)
-        df["Grid_export"] = get_flow(results, col_grid_export)
-        df["PV_Distribution"] = get_flow(results, col_pv_dist)
-        df["Demand"] = get_flow(results, col_demand)
-
-        if scenario != 'NB':
-            df["Battery_charge"] = get_flow(results, col_batt_charge)
-            df["Battery_discharge"] = get_flow(results, col_batt_discharge)
+            df["Battery_charge"] = results[
+                ("('House1', 'ElectricityCarrier', 'distribution')",
+                 "('House1', 'storage1', 'Battery_Storage')")
+            ]
+            df["Battery_discharge"] = results[
+                ("('House1', 'storage1', 'Battery_Storage')",
+                 "('House1', 'ElectricityCarrier', 'distribution')")
+            ]
         else:
             df["Battery_charge"] = 0
             df["Battery_discharge"] = 0
 
-        df["PV_self"] = (df["PV_Distribution"] - df["Battery_charge"]).clip(lower=0)
-        df = df / 60000.0  # convert Wh-min → kWh
+        # Grid + PV
+        df["Grid_import"] = results[
+            ("('House1', 'ElectricityGridConnection', 'grid_import')",
+             "('House1', 'ElectricityCarrier', 'distribution')")
+        ]
+        df["Grid_export"] = results[
+            ("('House1', 'ElectricityCarrier', 'feed_in')",
+             "('House1', 'ElectricityGridConnection', 'grid_export')")
+        ]
+        df["PV_Distribution"] = results[
+            ("('House1', 'PV', 'connection')",
+             "('House1', 'ElectricityCarrier', 'distribution')")
+        ]
+        df["Demand"] = results[("('House1', 'ElectricityCarrier', 'distribution')",
+                                 "('House1', 'demand', 'input')")]
 
+        # PV self-use
+        df["PV_self"] = (df["PV_Distribution"] - df["Battery_charge"]).clip(lower=0)
+
+        # Convert W·min to kWh
+        df = df / 60000.0
+
+        # Time window
         start_date = pd.Timestamp(start, tz='UTC')
         end_date = pd.Timestamp(end, tz='UTC')
         step = pd.Timedelta(days=7)
+
         df = df[(df.index >= start_date) & (df.index <= end_date)]
 
-        # Export PDF
-        with PdfPages(pdf_path) as pdf:
-            current_date = start_date
-            while current_date <= end_date:
-                end_interval = min(current_date + step - pd.Timedelta(days=1), end_date)
-                df_filtered = df.loc[(df.index >= current_date) & (df.index <= end_interval)]
+        # Weekly plots
+        current_date = start_date
+        week_number = 1
 
-                if not df_filtered.empty:
-                    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(21, 9), sharex=True, dpi=150)
-                    plt.subplots_adjust(hspace=0.5)
+        while current_date <= end_date:
 
-                    df_filtered["Grid_import"].plot(ax=axes[0], label="Grid Import (kWh)")
-                    df_filtered["Grid_export"].plot(ax=axes[0], label="Grid Export (kWh)")
-                    df_filtered["Demand"].plot(ax=axes[0], label="Demand (kWh)", linestyle="--")
-                    axes[0].set_ylabel("Energy (kWh)")
-                    axes[0].legend()
-                    axes[0].grid(True)
+            end_interval = min(current_date + step - pd.Timedelta(days=1), end_date)
+            df_filtered = df[(df.index >= current_date) & (df.index <= end_interval)]
 
-                    if scenario != 'NB':
-                        df_filtered["Battery_charge"].plot(ax=axes[1], label="Battery Charge (kWh)")
-                        df_filtered["Battery_discharge"].plot(ax=axes[1], label="Battery Discharge (kWh)", linestyle="--")
+            if not df_filtered.empty:
+                fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(21, 9), sharex=True, dpi=150)
+                plt.subplots_adjust(hspace=0.5)
 
-                    df_filtered["PV_self"].plot(ax=axes[1], label="PV Self-Use (kWh)", linestyle=":")
-                    axes[1].set_ylabel("Energy (kWh)")
-                    axes[1].legend()
-                    axes[1].grid(True)
+                # Grid flows
+                df_filtered["Grid_import"].plot(
+                    ax=axes[0], label="Grid Import (kWh)", color="blue"
+                )
+                df_filtered["Grid_export"].plot(
+                    ax=axes[0], label="Grid Export (kWh)", color="yellow"
+                )
+                df_filtered["Demand"].plot(
+                    ax=axes[0], label="Demand (kWh)", color="red", linestyle='--'
+                )
+                axes[0].set_ylabel("Energy (kWh)")
+                axes[0].legend(bbox_to_anchor=(1, 1), loc='upper right')
+                axes[0].grid(True)
 
-                    fig.suptitle(f"{scenario} — {current_date.date()} to {end_interval.date()}", fontsize=16)
-                    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-                    pdf.savefig(fig)
-                    plt.close(fig)
+                # Battery + PV
+                if scenario != 'NB':
+                    df_filtered["Battery_charge"].plot(
+                        ax=axes[1], label="Battery Charge (kWh)", color="orange"
+                    )
+                    df_filtered["Battery_discharge"].plot(
+                        ax=axes[1], label="Battery Discharge (kWh)",
+                        color="purple", linestyle='--'
+                    )
 
-                current_date += step
+                df_filtered["PV_self"].plot(
+                    ax=axes[1], label="PV Self-Use (kWh)", color="green", linestyle=':'
+                )
 
-        print(f"✅ Saved PDF for {scenario}, month {m} → {pdf_path}")
+                axes[1].set_xlabel("Time")
+                axes[1].set_ylabel("Energy (kWh)")
+                axes[1].legend(bbox_to_anchor=(1, 1), loc='upper right')
+                axes[1].grid(True)
+
+                fig.suptitle(
+                    f"Energy Flows ({current_date.date()} to {end_interval.date()}) - {scenario}",
+                    fontsize=16
+                )
+                plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+                # Save PNG
+                png_path = os.path.join(
+                    output_dir, f"{scenario}_{m}_week{week_number}.png"
+                )
+                plt.savefig(png_path, dpi=300)
+                plt.close(fig)
+
+                print(f"Saved PNG: {png_path}")
+
+            current_date += step
+            week_number += 1

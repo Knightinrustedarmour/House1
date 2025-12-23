@@ -211,17 +211,17 @@ House1.add(technologies.RenewableElectricitySource(
     fixed=True 
 ))
 
-House1.add(technologies.BatteryStorage(
-    name="storage1",
-    nominal_capacity=50000, # Wh
-    charging_C_Rate=0.77,
-    discharging_C_Rate=0.77,
-    charging_efficiency=0.96,
-    discharging_efficiency=0.96,
-    loss_rate=0.0005,
-    initial_soc=0.5,
-    min_soc=0.1
-))
+# House1.add(technologies.BatteryStorage(
+#     name="storage1",
+#     nominal_capacity=50000, # Wh
+#     charging_C_Rate=0.77,
+#     discharging_C_Rate=0.77,
+#     charging_efficiency=0.96,
+#     discharging_efficiency=0.96,
+#     loss_rate=0.0005,
+#     initial_soc=0.5,
+#     min_soc=0.1
+# ))
 
 # --- Solph Model and Optimization ---
 solph_representation = SolphModel(

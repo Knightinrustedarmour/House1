@@ -6,8 +6,7 @@ def calculate_monthly_flows(scenario_identifier, scenario_config):
     Calculates monthly energy flows for a given scenario by checking for multiple header formats.
     """
     
-    # Dictionary with both possible header formats for each flow.
-    # Note: This has been updated to match the model version you provided.
+    
     ALL_FLOWS = {
         "Demand_Consumption": [
             ("SolphLabel(location='House1', mtress_component='ElectricityCarrier', solph_node='distribution')", "SolphLabel(location='House1', mtress_component='demand', solph_node='input')"),
@@ -89,16 +88,16 @@ def calculate_monthly_flows(scenario_identifier, scenario_config):
             
     return monthly_results
 
-# --- Core Script Execution ---
+
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(script_dir, "output", "monthly_energy_flows")
     os.makedirs(output_dir, exist_ok=True)
 
-    # Scenarios config from the user's new script
+ 
     scenarios_config = {
         "NoPV": {
-            "flow_dir": os.path.join(script_dir, "flows_nopv"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_nopv_jan23.csv', 'feb': 'flow_nopv_feb23.csv',
                 'mar': 'flow_nopv_mar23.csv', 'apr': 'flow_nopv_apr23.csv', 'may': 'flow_nopv_may23.csv',
@@ -108,7 +107,7 @@ if __name__ == "__main__":
             }
         },
         "PV_NoBattery": {
-            "flow_dir": os.path.join(script_dir, "flows_nobattery"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_NB_jan23.csv', 'feb': 'flow_NB_feb23.csv',
                 'mar': 'flow_NB_mar23.csv', 'apr': 'flow_NB_apr23.csv', 'may': 'flow_NB_may23.csv',
@@ -118,7 +117,7 @@ if __name__ == "__main__":
             }
         },
         "5kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_5k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_5k_jan23.csv', 'feb': 'flow_5k_feb23.csv',
                 'mar': 'flow_5k_mar23.csv', 'apr': 'flow_5k_apr23.csv', 'may': 'flow_5k_may23.csv',
@@ -128,7 +127,7 @@ if __name__ == "__main__":
             }
         },
         "8kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_8k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_8k_jan23.csv', 'feb': 'flow_8k_feb23.csv',
                 'mar': 'flow_8k_mar23.csv', 'apr': 'flow_8k_apr23.csv', 'may': 'flow_8k_may23.csv',
@@ -138,7 +137,7 @@ if __name__ == "__main__":
             }
         },
         "12kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_12k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_12k_jan23.csv', 'feb': 'flow_12k_feb23.csv',
                 'mar': 'flow_12k_mar23.csv', 'apr': 'flow_12k_apr23.csv', 'may': 'flow_12k_may23.csv',
@@ -148,7 +147,7 @@ if __name__ == "__main__":
             }
         },
         "15kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_15k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_15k_jan23.csv', 'feb': 'flow_15k_feb23.csv',
                 'mar': 'flow_15k_mar23.csv', 'apr': 'flow_15k_apr23.csv', 'may': 'flow_15k_may23.csv',
@@ -158,7 +157,7 @@ if __name__ == "__main__":
             }
         },
         "20kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_20k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_20k_jan23.csv', 'feb': 'flow_20k_feb23.csv',
                 'mar': 'flow_20k_mar23.csv', 'apr': 'flow_20k_apr23.csv', 'may': 'flow_20k_may23.csv',
@@ -168,7 +167,7 @@ if __name__ == "__main__":
             }
         },
         "26kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_26k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_26k_jan23.csv', 'feb': 'flow_26k_feb23.csv',
                 'mar': 'flow_26k_mar23.csv', 'apr': 'flow_26k_apr23.csv', 'may': 'flow_26k_may23.csv',
@@ -178,7 +177,7 @@ if __name__ == "__main__":
             }
         },
         "50kWh": {
-            "flow_dir": os.path.join(script_dir, "flows_50k"),
+            "flow_dir": os.path.join(script_dir, "flows"),
             "files": {
                 'jan': 'flow_50k_jan23.csv', 'feb': 'flow_50k_feb23.csv',
                 'mar': 'flow_50k_mar23.csv', 'apr': 'flow_50k_apr23.csv', 'may': 'flow_50k_may23.csv',
@@ -206,3 +205,10 @@ if __name__ == "__main__":
         output_filepath = os.path.join(output_dir_monthly, "monthly_energy_flows_master_table.csv")
         df_monthly_flows_master.to_csv(output_filepath, index=False, float_format="%.2f")
         print(f"\nSuccessfully created monthly energy flows master table at: {output_filepath}")
+
+
+
+
+
+
+

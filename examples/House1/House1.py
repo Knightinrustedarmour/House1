@@ -74,27 +74,28 @@ for month_info in months_to_simulate:
     monthly_meta_model.add_location(monthly_House1)
 
     monthly_House1.add(carriers.ElectricityCarrier())
-    monthly_House1.add(technologies.ElectricityGridConnection(working_rate=0.35, revenue=0.08))
+    monthly_House1.add(technologies.ElectricityGridConnection(working_rate=35e-6, revenue=8e-6))
     monthly_House1.add(demands.Electricity(name="demand", time_series=op_data["Load_W"]))
     monthly_House1.add(technologies.RenewableElectricitySource(
         name="PV",
         nominal_power=1,
         specific_generation=op_data["Modelled_Energy"],
-        fixed=True 
+        fixed=True
     ))
-   
+    
 
-    monthly_House1.add(technologies.BatteryStorage(
-        name="storage1",
-        nominal_capacity=12000, 
-        charging_C_Rate=0.77,
-        discharging_C_Rate=0.77,
-        charging_efficiency=0.96,
-        discharging_efficiency=0.96,
-        loss_rate=0.0005,
-        initial_soc=0.5,
-        min_soc=0.1
-    ))
+
+    # monthly_House1.add(technologies.BatteryStorage(
+    #     name="storage1",
+    #     nominal_capacity=5000,
+    #     charging_C_Rate=0.77,
+    #     discharging_C_Rate=0.77,
+    #     charging_efficiency=0.96,
+    #     discharging_efficiency=0.96,
+    #     loss_rate=0.0005,
+    #     initial_soc=0.5,
+    #     min_soc=0.1
+    # ))
 
     solph_representation = SolphModel(
         monthly_meta_model,
@@ -107,15 +108,15 @@ for month_info in months_to_simulate:
     myresults = solph.processing.results(solved_model)
     flows = get_flows(myresults) 
     plot = solph_representation.graph(
-    detail=True, flow_results=flows, flow_color=None
+    detail=True, flow_results=None, flow_color=None
 )
-    plot.render(outfile="House1_dy.png")
+    plot.render(outfile="House1.png")
 
     output = pd.DataFrame(flows)
     
     # Save flows to a unique CSV file for each month
-    file_name = f"flow_12k_{start_date.strftime('%b%y').lower()}.csv"
+    file_name = f"flow_NB_{start_date.strftime('%b%y').lower()}.csv"
     output.to_csv(os.path.join(output_dir, file_name), index=True)
     print(f"Saved {file_name}")
 
-print("All 2023 monthly simulations complete!") 
+print("All 2023 monthly simulations complete!")

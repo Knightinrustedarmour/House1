@@ -68,7 +68,7 @@ def generate_soc_density_plots(base_output_dir, scenarios_config):
                 # Use seaborn.kdeplot directly for the 2D density plot
                 # This plots the density contours and fills them with color
                 kde_plot = sns.kdeplot(x=soc_data_int, y=hour_of_day, fill=True,
-                                       cmap='viridis', cbar=True, # Enable colorbar directly
+                                       cmap='viriddis', cbar=True, # Enable colorbar directly
                                        cbar_kws={"label": "Density of Occurrences"}, # Label for the colorbar
                                        ax=ax, # Draw on the created axes
                                        clip=((0, 100), (0, 23))) # Clip to desired range, important for kdeplot

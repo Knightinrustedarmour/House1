@@ -71,10 +71,10 @@ def calculate_annual_flows(scenario_identifier, scenario_config):
                         data_series = results[solph_label_tuple]
                         monthly_total_wh = data_series.sum()
                         annual_flows_total[flow_name] += monthly_total_wh
-                        # Once a header is found, break to avoid summing multiple times
+                       
                         break 
                     except KeyError:
-                        # Continue to the next possible header format if the current one is not found
+                        
                         continue
         except Exception as e:
             print(f"Error reading {filepath}: {e}. Skipping file.")
@@ -88,7 +88,7 @@ def calculate_annual_flows(scenario_identifier, scenario_config):
     annual_flows_kwh["Scenario"] = scenario_identifier
     return annual_flows_kwh
 
-# --- Core Script Execution ---
+
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(script_dir, "output", "energy_flow_master_table")
