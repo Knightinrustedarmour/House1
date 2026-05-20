@@ -163,7 +163,7 @@ for scenario in scenarios:
                 heatmap_data,
                 aspect="auto",
                 origin="lower",
-                cmap="viridis",     # deep color, no white
+                cmap="RdBu_r",     # deep color, no white
                 vmin=V_MIN,
                 vmax=V_MAX,
                 interpolation="nearest"
